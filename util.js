@@ -2,7 +2,7 @@ const jsonSchemaFaker = require('json-schema-faker');
 const Pop = require('tree-pop');
 const arrays = require('async-arrays');
 const access = require('object-accessor');
-const sift = require('sift').default;
+//const sift = require('sift').default;
 
 //UTIL
 
@@ -100,7 +100,7 @@ const makeLookup = (ob, primaryKey, identifier)=>{
 						return item.options.name === parts.type;
 					});
 					let instanceList = Object.keys(res.instances).map((key)=> res.instances[key]);
-					let instancesMeetingCriteria = instanceList.filter(sift(criteria));
+					let instancesMeetingCriteria = instanceList.filter(ob.api.sift(criteria));
 					if(instancesMeetingCriteria.length){
 						cb && cb(null, instancesMeetingCriteria);
 					}else{
@@ -123,7 +123,7 @@ const makeLookup = (ob, primaryKey, identifier)=>{
 				/*ob.api.internal(type, 'list', {}, (err, results)=>{
 					let endpoint = res;
 					let allResults = results.concat(res.instances);
-					let matchingResults = allResults.filter(sift(criteria));
+					let matchingResults = allResults.filter(ob.api.sift(criteria));
 					//console.log('!!!');
 					//console.log(criteria, matchingResults);
 					if(matchingResults.length){
@@ -319,7 +319,7 @@ const handleList = (ob, pageNumber, urlPath, instances, options, callback)=>{
 		}else{ // we do all the work: we need to reduce using full values
 			let opts = pageVars();
 			fillList(seeds, options, (err, filled)=>{
-				let set = filled.filter(sift(options.query));
+				let set = filled.filter(ob.api.sift(options.query));
 				let len = set.length;
 				set = set.slice(opts.offset, opts.offset+opts.size);
 				let returnOptionValue = null;
