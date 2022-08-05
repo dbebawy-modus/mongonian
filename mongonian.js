@@ -4,6 +4,7 @@ const template = require('es6-template-strings');
 const arrays = require('async-arrays');
 const access = require('object-accessor');
 const validate = require('jsonschema').validate;
+const jsonSchemaFaker = require('json-schema-faker');
 const ks = require('kitchen-sync');
 const {
 	stringsToStructs, 
@@ -14,6 +15,84 @@ const {
 	handleBatch, 
 	handleListPage
 } = require('./util.js');
+
+const getUrls = (config, pathOptions, endpoint)=>{
+	if(endpoint.urls) return endpoint.urls;
+	let urls = {
+		list : template(
+			(
+				(config.paths && config.paths.list) ||
+				'${basePath}/list'
+			),
+			pathOptions
+		),
+		save : template(
+			(
+				(config.paths && config.paths.save) ||
+				'${basePath}/save'
+			),
+			pathOptions
+		),
+		listPage : template(
+			(
+				(config.paths && config.paths.listPage) ||
+				'${basePath}/list/:pageNumber'
+			),
+			pathOptions
+		),
+		create : template(
+			(
+				(config.paths && config.paths.create) ||
+				'${basePath}/create'
+			),
+			pathOptions
+		),
+		edit : template(
+			(
+				(config.paths && config.paths.edit) ||
+				'${basePath}/:${primaryKey}/edit'
+			),
+			pathOptions
+		),
+		display : template(
+			(
+				(config.paths && config.paths.display) ||
+				'${basePath}/:${primaryKey}'
+			),
+			pathOptions
+		),
+		listSchema : template(
+			(
+				(config.paths && config.paths.display) ||
+				'${basePath}/list-schema.json'
+			),
+			pathOptions
+		),
+		itemSchema : template(
+			(
+				(config.paths && config.paths.display) ||
+				'${basePath}/display-schema.json'
+			),
+			pathOptions
+		),
+		createSchema : template(
+			(
+				(config.paths && config.paths.display) ||
+				'${basePath}/create-schema.json'
+			),
+			pathOptions
+		),
+		editSchema : template(
+			(
+				(config.paths && config.paths.display) ||
+				'${basePath}/edit-schema.json'
+			),
+			pathOptions
+		)
+	};
+	endpoint.urls = urls;
+	return endpoint.urls;
+}
 
 const QueryDocumentSchema = {
 	type: 'object',
@@ -70,10 +149,10 @@ const Mongonian = OutputFormat.extend({
 			let callback = ks(cb);
 			try{
 			handleList(
-				this, 
+				endpoint, 
 				(options.pageNumber?parseInt(options.pageNumber):1), 
-				`js://${this.options.name}/`, 
-				this.instances, 
+				`js://${endpoint.options.name}/`, 
+				endpoint.instances, 
 				options, 
 				(err, returnValue, set, len, write)=>{
 					callback(null, set);
@@ -106,8 +185,8 @@ const Mongonian = OutputFormat.extend({
 		
 		endpoint.create = function(options, cb){
 			let callback = ks(cb);
-			if(validate(options.body, this.originalSchema)){
-				this.instances[options.body[primaryKey]] = options.body;
+			if(validate(options.body, endpoint.originalSchema)){
+				endpoint.instances[options.body[primaryKey]] = options.body;
 				callback(null, options.body);
 			}else{
 				callback(new Error("the provided data was not valid"));
@@ -117,12 +196,12 @@ const Mongonian = OutputFormat.extend({
 		
 		endpoint.read = function(options, cb){
 			let callback = ks(cb);
-			let config = this.config();
+			let config = endpoint.config();
 			let primaryKey = config.primaryKey || 'id';
-			if(this.instances[options[primaryKey]]){
-				callback(null, this.instances[options[primaryKey]])
+			if(endpoint.instances[options[primaryKey]]){
+				callback(null, endpoint.instances[options[primaryKey]])
 			}else{
-				this.generate(options[primaryKey], (err, generated)=>{
+				endpoint.generate(options[primaryKey], (err, generated)=>{
 					callback(null, generated)
 				});
 			}
@@ -131,7 +210,7 @@ const Mongonian = OutputFormat.extend({
 		
 		endpoint.update = function(options, cb){
 			let callback = ks(cb);
-			let config = this.config();
+			let config = endpoint.config();
 			let primaryKey = config.primaryKey || 'id';
 			endpoint.getInstance(options[primaryKey], (err, item)=>{
 				if(options.body && typeof options.body === 'object'){
@@ -139,8 +218,8 @@ const Mongonian = OutputFormat.extend({
 						item[key] = options.body[key];
 					});
 					//item is now the set of values to save
-					if(validate(item, this.originalSchema)){
-						this.instances[options[primaryKey]] = item;
+					if(validate(item, endpoint.originalSchema)){
+						endpoint.instances[options[primaryKey]] = item;
 						callback(null, item);
 					}else{
 						//fail
@@ -160,18 +239,78 @@ const Mongonian = OutputFormat.extend({
 			return callback.return;
 		}
 	},
-	attachRoot : function(expressInstance, endpoint, {
-		prefix, 
-		urlPath, 
-		config, 
-		errorConfig, 
-		primaryKey,
-		resultSpec,
-		cleaned,
-		readOnly,
-		pathOptions
-	}){
-		
+	attachRoot : function(instance, api, cb){
+		api.ready.then(()=>{
+			try{
+				if(instance){
+					instance.get('/openapi.json', (req, res)=>{
+						let org = {
+							'list': '', 
+							'display': '', 
+							'create': '', 
+							'edit': ''
+						}
+						let serverList = [];
+						let pathReferenceDirectory = {};
+						api.endpoints.forEach((endpoint)=>{
+							org = {
+								'list': endpoint.urls.list, 
+								'display': endpoint.urls.display.replace(':id', '{id}'), 
+								'create': endpoint.urls.create, 
+								'edit': endpoint.urls.edit.replace(':id', '{id}')
+							}
+							Object.keys(org).forEach((key)=>{
+								pathReferenceDirectory[org[key]] = {$ref: endpoint.basePath+'/'+key+'-schema.json'};
+							});
+							//console.log(endpoint); 
+						});
+						res.send(JSON.stringify({
+							openapi: '3.0.0',
+							servers: serverList,
+							paths: pathReferenceDirectory
+						}));
+					});
+					let port = process.env.PERIGRESS_OPENAPI_PORT || 8080;
+					let host = process.env.PERIGRESS_OPENAPI_HOST || 'localhost';
+					let protocol = process.env.PERIGRESS_OPENAPI_PROTOCOL || 'http';
+					let staticSwaggerHost = process.env.PERIGRESS_OPENAPI_STATIC_HOST || 'unpkg.com/swagger-ui-dist@4.5.0';
+					instance.get('/spec', (req, res)=>{
+						res.send(`<!DOCTYPE html>
+						<html lang="en">
+						<head>
+						  <meta charset="utf-8" />
+						  <meta name="viewport" content="width=device-width, initial-scale=1" />
+						  <meta
+							name="description"
+							content="SwaggerUI"
+						  />
+						  <title>SwaggerUI</title>
+						  <link rel="stylesheet" href="${protocol}://${staticSwaggerHost}/swagger-ui.css" />
+						</head>
+						<body>
+						<div id="swagger-ui"></div>
+						<script src="${protocol}://${staticSwaggerHost}/swagger-ui-bundle.js" crossorigin></script>
+						<script>
+						  window.onload = () => {
+							window.ui = SwaggerUIBundle({
+							  url: '${protocol}://${host}:${port}/openapi.json',
+							  deepLinking: true,
+							  dom_id: '#swagger-ui',
+							});
+						  };
+						</script>
+						</body>
+						</html>`);
+					});
+					/*instance.all('*', (req, res)=>{
+						res.send('{"error":true, "message":"Path not found."}');
+					});*/
+				}
+				if(cb) cb();
+			}catch(ex){
+				console.log('ERROR', ex);
+			}
+		});
 	},
 	attachEndpoint : function(expressInstance, endpoint, {
 			prefix, 
@@ -185,78 +324,9 @@ const Mongonian = OutputFormat.extend({
 			pathOptions
 		}){
 			
-		let urls = {
-			list : template(
-				(
-					(config.paths && config.paths.list) ||
-					'${basePath}/list'
-				),
-				pathOptions
-			),
-			save : template(
-				(
-					(config.paths && config.paths.save) ||
-					'${basePath}/save'
-				),
-				pathOptions
-			),
-			listPage : template(
-				(
-					(config.paths && config.paths.listPage) ||
-					'${basePath}/list/:pageNumber'
-				),
-				pathOptions
-			),
-			create : template(
-				(
-					(config.paths && config.paths.create) ||
-					'${basePath}/create'
-				),
-				pathOptions
-			),
-			edit : template(
-				(
-					(config.paths && config.paths.edit) ||
-					'${basePath}/:${primaryKey}/edit'
-				),
-				pathOptions
-			),
-			display : template(
-				(
-					(config.paths && config.paths.display) ||
-					'${basePath}/:${primaryKey}'
-				),
-				pathOptions
-			),
-			listSchema : template(
-				(
-					(config.paths && config.paths.display) ||
-					'${basePath}/list-schema.json'
-				),
-				pathOptions
-			),
-			itemSchema : template(
-				(
-					(config.paths && config.paths.display) ||
-					'${basePath}/display-schema.json'
-				),
-				pathOptions
-			),
-			createSchema : template(
-				(
-					(config.paths && config.paths.display) ||
-					'${basePath}/create-schema.json'
-				),
-				pathOptions
-			),
-			editSchema : template(
-				(
-					(config.paths && config.paths.display) ||
-					'${basePath}/edit-schema.json'
-				),
-				pathOptions
-			)
-		};
+		let urls = getUrls(config, pathOptions, endpoint);
+		endpoint.basePath = urlPath
+		
 			
 		expressInstance[
 			endpoint.endpointOptions.method.toLowerCase()
@@ -332,17 +402,31 @@ const Mongonian = OutputFormat.extend({
 	attachSpec : function(){
 		
 	},
-	attachEndpointSpec : function(){
+	attachEndpointSpec : function(expressInstance, endpoint, {
+			prefix, 
+			urlPath, 
+			config, 
+			errorConfig, 
+			primaryKey,
+			resultSpec,
+			cleaned,
+			readOnly,
+			pathOptions
+		}){
+		let urls = getUrls(config, pathOptions, endpoint);
+		let opts = {
+			objectName: endpoint.options.name
+		};
+		if(!expressInstance) throw new Error('express not found!');
 		expressInstance[
-			this.endpointOptions.method.toLowerCase()
-		](urls.listSchema, (req, res)=>{
+			endpoint.endpointOptions.method.toLowerCase()
+		](endpoint.urls.listSchema, (req, res)=>{
 			let cleanedCopy = JSON.parse(JSON.stringify(cleaned));
 			if(cleanedCopy.properties && cleanedCopy.properties.results){
 				cleanedCopy.properties.results.items = this.schema;
 			}
-			
 			jsonSchemaFaker.resolve(cleaned, [], process.cwd()).then((exampleReturn)=>{
-				this.generate(1, (err, generated)=>{
+				endpoint.generate(1, (err, generated)=>{
 					exampleReturn.results = [generated];
 					res.send(JSON.stringify({
 						post:{
@@ -389,9 +473,9 @@ const Mongonian = OutputFormat.extend({
 		});
 		
 		expressInstance[
-			this.endpointOptions.method.toLowerCase()
-		](urls.itemSchema, (req, res)=>{
-			this.generate(1, (err, generated)=>{
+			endpoint.endpointOptions.method.toLowerCase()
+		](endpoint.urls.itemSchema, (req, res)=>{
+			endpoint.generate(1, (err, generated)=>{
 				res.send(JSON.stringify({
 					post:{
 						summary: template('Request a single ${objectName}', opts ),
@@ -426,9 +510,9 @@ const Mongonian = OutputFormat.extend({
 		});
 		
 		expressInstance[
-			this.endpointOptions.method.toLowerCase()
-		](urls.editSchema, (req, res)=>{
-			this.generate(1, (err, generated)=>{
+			endpoint.endpointOptions.method.toLowerCase()
+		](endpoint.urls.editSchema, (req, res)=>{
+			endpoint.generate(1, (err, generated)=>{
 				let writable = {};
 				Object.keys(generated).forEach((key)=>{
 					if(readOnly.indexOf(key) === -1 ) writable[key] = generated[key];
@@ -474,11 +558,10 @@ const Mongonian = OutputFormat.extend({
 				}))
 			});
 		});
-		
 		expressInstance[
-			this.endpointOptions.method.toLowerCase()
-		](urls.createSchema, (req, res)=>{
-			this.generate(1, (err, generated)=>{
+			endpoint.endpointOptions.method.toLowerCase()
+		](endpoint.urls.createSchema, (req, res)=>{
+			endpoint.generate(1, (err, generated)=>{
 				let writable = {};
 				Object.keys(generated).forEach((key)=>{
 					if(readOnly.indexOf(key) === -1 ) writable[key] = generated[key];

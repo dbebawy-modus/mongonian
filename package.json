@@ -1,6 +1,6 @@
 {
   "name": "@perigress/mongonian",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "main": "mongonian.js",
   "description": "Mongo like output format for Perigress",
   "keywords": [
@@ -29,13 +29,13 @@
     "test": "./node_modules/mocha/bin/_mocha"
   },
   "dependencies": {
+    "@perigress/perigress": "0.1.2",
     "async-arrays": "^1.0.1",
     "es6-template-strings": "^2.0.1",
     "json-schema-faker": "^0.5.0-rcv.44",
     "jsonschema": "^1.4.1",
     "kitchen-sync": "0.0.1",
     "object-accessor": "0.0.4",
-    "tree-pop": "0.0.5",
-    "@perigress/perigress": "0.1.1"
+    "tree-pop": "0.0.5"
   }
 }

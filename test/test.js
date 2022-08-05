@@ -339,26 +339,27 @@ describe('perigress', ()=>{
 				subpath : 'paged-wkr-api',
 				dir: __dirname
 			}, new Mongoish());
-			api.attach();
-			api.internal('user', 'list', {}, (err, results)=>{
-				let joiSchema = require(path.join(
-					__dirname, 'paged-wkr-api', 'v1', 'user.spec.js'
-				));
-				should.exist(results);
-				Array.isArray(results).should.equal(true);
-				should.exist(results[0]);
-				should.exist(results[0].id);
-				should.exist(results[0].firstName);
-				should.exist(results[0].lastName);
-				should.exist(results[0].email);
-				should.exist(results[0].phone);
-				should.exist(results[0].birthday);
-				results.forEach((res)=>{
-					let valid = joiSchema.validate(res);
-					(!!valid).should.equal(true);
-					should.not.exist(valid.error);
+			api.attach(null, ()=>{
+				api.internal('user', 'list', {}, (err, results)=>{
+					let joiSchema = require(path.join(
+						__dirname, 'paged-wkr-api', 'v1', 'user.spec.js'
+					));
+					should.exist(results);
+					Array.isArray(results).should.equal(true);
+					should.exist(results[0]);
+					should.exist(results[0].id);
+					should.exist(results[0].firstName);
+					should.exist(results[0].lastName);
+					should.exist(results[0].email);
+					should.exist(results[0].phone);
+					should.exist(results[0].birthday);
+					results.forEach((res)=>{
+						let valid = joiSchema.validate(res);
+						(!!valid).should.equal(true);
+						should.not.exist(valid.error);
+					});
+					done();
 				});
-				done();
 			});
 		});
 		
@@ -368,19 +369,20 @@ describe('perigress', ()=>{
 					subpath : 'wkr-api',
 					dir: __dirname
 				}, new Mongoish());
-				api.attach();
-				let joiSchema = require(path.join(
-					__dirname, 'paged-wkr-api', 'v1', 'user.spec.js'
-				));
-				let user = await api.internal('user', 'read', { id : 1 });
-				should.exist(user);
-				let valid = joiSchema.validate(user);
-				(!!valid).should.equal(true);
-				user.id.should.equal(1);
-				user.firstName.should.equal('Elizabeth');
-				user.lastName.should.equal('Zulauf');
-				user.email.should.equal('Zion.Reichel12@yahoo.com');
-				user.phone.should.equal('520-674-9557');
+				api.attach(null, async ()=>{
+					let joiSchema = require(path.join(
+						__dirname, 'paged-wkr-api', 'v1', 'user.spec.js'
+					));
+					let user = await api.internal('user', 'read', { id : 1 });
+					should.exist(user);
+					let valid = joiSchema.validate(user);
+					(!!valid).should.equal(true);
+					user.id.should.equal(1);
+					user.firstName.should.equal('Elizabeth');
+					user.lastName.should.equal('Zulauf');
+					user.email.should.equal('Zion.Reichel12@yahoo.com');
+					user.phone.should.equal('520-674-9557');
+				});
 			}catch(ex){
 				console.log(ex)
 				should.not.exist(ex);
@@ -393,18 +395,19 @@ describe('perigress', ()=>{
 					subpath : 'wkr-api',
 					dir: __dirname
 				}, new Mongoish());
-				api.attach();
-				api.internal('user', 'list', {}, (err, users)=>{
-					let item = users[0];
-					item.firstName = 'Bob';
-					api.internal('user', 'update', { 
-						id : item.id, 
-						body: item 
-					}, (err, savedUser)=>{
-						should.exist(savedUser);
-						api.internal('user', 'read', { id : item.id}, (err, user)=>{
-							user.firstName.should.equal('Bob');
-							done();
+				api.attach(null, ()=>{
+					api.internal('user', 'list', {}, (err, users)=>{
+						let item = users[0];
+						item.firstName = 'Bob';
+						api.internal('user', 'update', { 
+							id : item.id, 
+							body: item 
+						}, (err, savedUser)=>{
+							should.exist(savedUser);
+							api.internal('user', 'read', { id : item.id}, (err, user)=>{
+								user.firstName.should.equal('Bob');
+								done();
+							});
 						});
 					});
 				});
@@ -428,18 +431,19 @@ const testAPI = (p, cb)=>{
 		dir: __dirname
 	}, new Mongoish());
 	api.ready.then(()=>{
-		api.attach(app);
-		const server = app.listen(port, ()=>{
-			cb(null, app, (cb)=>{
-				server.close(()=>{
-					cb();
-				});
-			}, (type)=>{
-				let joiSchema = require(path.join(
-					__dirname, p, 'v1', type+'.spec.js'
-				));
-				return joiSchema;
-			})
+		api.attach(app, ()=>{
+			const server = app.listen(port, ()=>{
+				cb(null, app, (cb)=>{
+					server.close(()=>{
+						cb();
+					});
+				}, (type)=>{
+					let joiSchema = require(path.join(
+						__dirname, p, 'v1', type+'.spec.js'
+					));
+					return joiSchema;
+				})
+			});
 		});
 	}).catch((ex)=>{
 		should.not.exist(ex);
