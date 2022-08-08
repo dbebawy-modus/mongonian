@@ -213,6 +213,35 @@ describe('perigress', ()=>{
 			});
 		});
 		
+		it('loads independent links', function(done){
+			this.timeout(20000);
+			testAPI('audit-fk-api', async (err, app, closeAPI, getValidator)=>{
+				should.not.exist(err);
+				try{
+					let contracts = await rqst({ 
+						url: `http://localhost:${port}/v1/contract/list`, 
+						method, json: { query: {},
+							internal: [
+								'avatar_user_id',
+								'creator_user_id'
+							]
+						} 
+					});
+					should.exist(contracts.body);
+					should.exist(contracts.body.results);
+					Array.isArray(contracts.body.results).should.equal(true);
+					contracts.body.results.forEach((contract)=>{
+						should.exist(contract.avatar_user);
+						should.exist(contract.creator_user);
+					});
+				}catch(ex){
+					console.log(ex);
+					should.not.exist(ex)
+				}
+				closeAPI(done);
+			});
+		});
+		
 		it('Loads and saves a complex object', function(done){
 			this.timeout(20000);
 			testAPI('audit-fk-api', async (err, app, closeAPI, getValidator)=>{
@@ -263,9 +292,17 @@ describe('perigress', ()=>{
 					let user = changedRequest.body.results[0];
 					should.exist(user.transaction_list);
 					user.transaction_list.length.should.be.above(1);
-					let item = changedRequest.body.results[0].transaction_list[0];
+					let item = changedRequest.body.results[0].transaction_list.filter(
+						(transaction)=>{
+							return transaction.id === 62000000;
+						}
+					)[0]
 					item.card_id.should.equal( 'SOMETHING_ELSE');
-					let item2 = changedRequest.body.results[0].transaction_list[1];
+					let item2 = changedRequest.body.results[0].transaction_list.filter(
+						(transaction)=>{
+							return transaction.id !== 62000000;
+						}
+					)[0]
 					item2.card_id.should.equal( 'SOME_OTHER_THING');
 				}catch(ex){
 					console.log(ex);

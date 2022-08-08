@@ -93,7 +93,9 @@ const makeLookup = (ob, primaryKey, identifier)=>{
 			const criteria = context;
 			// if the criteria is the lone id
 			let keys = Object.keys(criteria);
-			if(keys.length === 1 ){
+			if( //todo: better criteria
+				keys.length === 1
+			){
 				let parts = ob.options.expandable(type, keys[0], criteria[keys[0]]);
 				if(parts){ //is a foreign key
 					let ep = ob.api.endpoints.find((item)=>{
@@ -104,8 +106,15 @@ const makeLookup = (ob, primaryKey, identifier)=>{
 					if(instancesMeetingCriteria.length){
 						cb && cb(null, instancesMeetingCriteria);
 					}else{
-						res.generate(res.nextId(res), (err, generated)=>{
+						let id;
+						if(criteria[keys[0]]['$in'] && criteria[keys[0]]['$in'].length){
+							id = criteria[keys[0]]['$in'].shift();
+						}else{
+							id = res.nextId(res)
+						}
+						res.generate(id, (err, generated)=>{
 							Object.keys(criteria).forEach((key)=>{
+								if(key === identifier) return;
 								generated[key] = criteria[key];
 							});
 							let items = [];
@@ -193,7 +202,9 @@ const handleList = (ob, pageNumber, urlPath, instances, options, callback)=>{
 	let identifier = ob.options.identifier || 'id';
 	let lookup = makeLookup(ob, primaryKey, identifier);
 	let seeds = [];
-	let gen = ob.makeGenerator('3c38adefd2f5bf4');
+	let seed = options.seed|| ob.options.seed || config.seed || '3c38adefd2f5bf4';
+	let pageSize = (options.page && options.page.size) || config.defaultSize || 30;
+	let gen = ob.makeGenerator(seed);
 	let idGen = null;
 	if(ob.schema.properties[primaryKey].type === 'string'){
 		idGen = ()=>{
@@ -210,7 +221,7 @@ const handleList = (ob, pageNumber, urlPath, instances, options, callback)=>{
 			return v;
 		}
 	}
-	let length = 30 * gen.randomInt(1, 3) + gen.randomInt(0, 30);
+	let length = pageSize * gen.randomInt(1, 2) + gen.randomInt(0, pageSize);
 	if(options.query && options.expand){ // generate more, so we have more potential results
 		length = length * options.expand;
 	}
@@ -242,8 +253,8 @@ const handleList = (ob, pageNumber, urlPath, instances, options, callback)=>{
 					config.foreignKey &&
 					(options.internal || options.link || options.external)
 				){
-					let tpe = getExpansions(options, config);
 					//tpe is like: ['userTransaction:user:transaction']
+					let tpe = getExpansions(options, config);
 					populate.tree(ob.options.name, items[index], tpe, (err, tree)=>{
 						items[index] = tree;
 						done();
@@ -256,9 +267,9 @@ const handleList = (ob, pageNumber, urlPath, instances, options, callback)=>{
 					config.foreignKey &&
 					(options.internal || options.link || options.external)
 				){
+					//tpe is like: ['userTransaction:user:transaction']
 					let tpe = getExpansions(options, config);
 					ob.getInstance(seed, (err, generated)=>{
-						//tpe is like: ['userTransaction:user:transaction']
 						populate.tree(ob.options.name, generated, tpe, (err, tree)=>{
 							items[index] = tree;
 							done();
@@ -301,7 +312,8 @@ const handleList = (ob, pageNumber, urlPath, instances, options, callback)=>{
 		access.set(results, resultSpec.resultSetLocation, set);
 	}
 	let pageVars = ()=>{
-		let size = config.defaultSize || 30;
+		let pageOpts = options.page || {};
+		let size = pageOpts.size || config.defaultSize || 30;
 		let pageFrom0 = pageNumber - 1;
 		let offset = pageFrom0 * size;
 		let count = Math.ceil(seeds.length/size);
@@ -397,11 +409,12 @@ const copyJSON = (ob)=>{
 }
 
 const stringsToStructs = (strs, field, type)=>{
-	return strs.map((v)=>{
+	let map =  strs.map((v)=>{
 		let res = { type };
 		res[field] = v;
 		return res;
 	});
+	return map;
 };
 
 module.exports = {

@@ -15,6 +15,7 @@ module.exports = {
         return parts.join('_');
     },
     foreignKey : (id, getTables)=>{
+        if(!id) console.log((new Error()).stack)
         let parts = id.split('_');
         let suffix = parts.pop();
         if(suffix === 'id'){
@@ -23,6 +24,7 @@ module.exports = {
             let result = {
                 suffix,
                 type: tableString,
+                prefix : parts.pop(),
                 raw: id
             };
             if(tables.to) result.to = tables.to;
