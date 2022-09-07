@@ -1,30 +1,20 @@
 const should = require('chai').should();
 const Perigress = require('@perigress/perigress');
+const Tests = require('@perigress/perigress/test/util.js');
 const path = require('path');
+const arrays = require('async-arrays');
 const express = require('express');
 const bodyParser = require('body-parser');
 const request = require('postman-request');
 const ks = require('kitchen-sync');
 const Mongoish = require('../mongonian');
+const util = require('../test-util.js');
+const {testAPI, rqst, hasConsistentObjectOfType} = util;
+util.dir = __dirname;
+util.request = request;
 
 const port = 8080;
 const method = 'POST';
-
-/*
-	The basic form of a test is:
-	
-	it('saves changes', (done)=>{
-		testAPI('test-api-to-load', async (err, app, closeAPI, getValidator)=>{
-			should.not.exist(err);
-			try{
-				// test here
-			}catch(ex){
-				should.not.exist(ex)
-			}
-			closeAPI(done);
-		});
-	});
-*/
 
 describe('perigress', ()=>{
 	describe('Works with a simple API', ()=>{
@@ -270,7 +260,7 @@ describe('perigress', ()=>{
 					  isDeleted: false
 					})
 					let mutatedItem = listRequest.body.results[0].transaction_list[0];
-					mutatedItem.card_id.should.equal( '23A81f36-78Fe-4Cd6-8B5F-66EAcD4cE1fB');
+					mutatedItem.card_id.should.equal('23A81f36-78Fe-4Cd6-8B5F-66EAcD4cE1fB');
 					mutatedItem.card_id = 'SOMETHING_ELSE';
 					let saveRequest = await rqst({
 						url: `http://localhost:${port}/v1/user/save`,
@@ -280,6 +270,8 @@ describe('perigress', ()=>{
 							link: ['user+transaction']
 						}
 					});
+					//console.log('>>>>', loadedUser, saveRequest.body);
+					//process.exit();
 					let changedRequest = await rqst({ 
 						url: `http://localhost:${port}/v1/user/list`, 
 						method, json: { query: {},
@@ -291,6 +283,8 @@ describe('perigress', ()=>{
 					should.exist(changedRequest.body.results[0]);
 					let user = changedRequest.body.results[0];
 					should.exist(user.transaction_list);
+					//console.log(user.transaction_list);
+					//process.exit();
 					user.transaction_list.length.should.be.above(1);
 					let item = changedRequest.body.results[0].transaction_list.filter(
 						(transaction)=>{
@@ -455,76 +449,272 @@ describe('perigress', ()=>{
 		});
 		
 	});
+	// Disable the following block for vanilla mocha compatibility
+	//*
+	if(global.perigressAPI){ //this is set if called with test-runner
+		Tests.generateAllEndpointTestsFromAPI(perigressAPI, (endpoint, api)=>{
+			it(endpoint.options.name+' passes an extra test', (finish)=>{
+				finish();
+			});
+		}, 'test/api', new Mongoish());
+	}else{
+		describe.skip('[API SUITE]', ()=>{ it('were the tests run directly with mocha?') });
+	}
+	
+	describe('optional endpoints', ()=>{
+	
+		it('can perform aggregations', (done)=>{
+			try{
+				const app = express();
+				app.use(bodyParser.json({strict: false}));
+				const api = new Perigress.DummyAPI({
+					subpath : 'audit-fk-api',
+					dir: __dirname
+				}, new Mongoish({
+					aggregation: true
+				}));
+				api.attach(app, ()=>{
+					const server = app.listen(port, async (err)=>{
+						let listRequest = await rqst({ 
+							url: `http://localhost:${port}/v1/transaction/aggregation`, 
+							method, json: { 
+								query: {},
+								group: { 
+									_id: "card_id",
+									sumTotal: {$sum: "$total"},
+									countTotal: {$count: "$total"} 
+								}
+							} 
+						});
+						listRequest.body.result.length.should.equal(20);
+						server.close(()=>{
+							done();
+						});
+					});
+				});
+			}catch(ex){
+				console.log(ex)
+				should.not.exist(ex);
+			}
+		});
+		
+		it.skip('can perform wildcard searches', (done)=>{
+			try{
+				const app = express();
+				app.use(bodyParser.json({strict: false}));
+				const api = new Perigress.DummyAPI({
+					subpath : 'audit-fk-api',
+					dir: __dirname
+				}, new Mongoish({
+					search: true
+				}));
+				api.attach(app, ()=>{
+					const server = app.listen(port, async (err)=>{
+						let listRequest = await rqst({ 
+							url: `http://localhost:${port}/v1/transaction/search`, 
+							method, json: { 
+								query: {},
+								group: { 
+									_id: "card_id",
+									sumTotal: {$sum: "$total"},
+									countTotal: {$count: "$total"} 
+								}
+							} 
+						});
+						listRequest.body.result.length.should.equal(20);
+						server.close(()=>{
+							done();
+						});
+					});
+				});
+			}catch(ex){
+				console.log(ex)
+				should.not.exist(ex);
+			}
+		});
+		
+	});
+	
+	describe('pluggable logic', ()=>{
+	
+		it('runs a custom lookup that replicates the internal lookup', (done)=>{
+			const app = express();
+			app.use(bodyParser.json({strict: false}));
+			// A replication of the internal lookup;
+			let lookupCounter = 0;
+			const lookup = (type, context, cb)=>{
+				let endpoint = api.getInstance(type);
+				lookupCounter++;
+				if(Array.isArray(context)){
+					let results = context.slice();
+					arrays.forEachEmission(results, (id, index, done)=>{
+						if(endpoint.instances[id]){
+							results[index] = endpoint.instances[id];
+							done();
+						}else{
+							endpoint.generate(id, (err, item)=>{
+								results[index] = item;
+								done();
+							});
+						}
+					}, ()=>{
+						cb(null, results);
+					});
+				}else{
+					if(
+						typeof context === 'object' && 
+						Object.keys(context).length === 1
+					){
+						if(context.id){
+							return lookup(type, [context.id], cb)
+						}else{
+							let config = endpoint.config();
+							let key = Object.keys(context)[0];
+							let parts = config.foreignKey(key, ()=>{ return api.getTypes() });
+							return lookup(parts.type, [context[key]], cb);
+						}
+					}
+				}
+			};
+			const api = new Perigress.DummyAPI({
+				subpath : 'audit-fk-api',
+				dir: __dirname
+			}, new Mongoish(), { lookup });
+			api.attach(app, ()=>{
+				const server = app.listen(8081, async (err)=>{
+					let listRequest = await rqst({ 
+						url: `http://localhost:8081/v1/user/list`, 
+						method, json: { query: {},
+							link: ['user+transaction']
+						} 
+					});
+					server.close(()=>{
+						(lookupCounter === ((34 * api.endpoints.length) + 1 )).should.equal(true);
+						done();
+					});
+				});
+			});
+		});
+		
+		it('runs a custom lookup that dumps static objects', (done)=>{
+			const app = express();
+			app.use(bodyParser.json({strict: false}));
+			// A replication of the internal lookup;
+			let lookupCounter = 0;
+			const lookup = (type, context, cb)=>{
+				let endpoint = api.getInstance(type);
+				let id = endpoint.options.identifier || 'id';
+				lookupCounter++;
+				if(Array.isArray(context)){
+					let results = context.slice();
+					arrays.forEachEmission(results, (id, index, done)=>{
+						lookup(type, id, (err, item)=>{
+							results[index] = item[0];
+							done();
+						});
+					}, ()=>{
+						cb(null, results);
+					});
+				}else{
+					let setContext = context;
+					if(
+						Object.keys(setContext).length === 1 && 
+						setContext[id]
+					){
+						setContext = setContext[id];
+					}
+					if(setContext['$in'] && setContext['$in'].length === 1){
+						setContext = setContext['$in'][0];
+					}
+					let formalContext = (typeof context !== 'object')?{id:context}:context;
+					setTimeout(()=>{
+						let set = [{
+							id: setContext,
+							static: "object",
+							some: "field"
+						}].concat(endpoint.instances).filter(api.sift(formalContext));
+						cb(null, set);
+					})
+				}
+			};
+			const api = new Perigress.DummyAPI({
+				subpath : 'audit-fk-api',
+				dir: __dirname
+			}, new Mongoish(), { lookup });
+			api.attach(app, ()=>{
+				const server = app.listen(8081, async (err)=>{
+					let listRequest = await rqst({ 
+						url: `http://localhost:8081/v1/user/list`, 
+						method, json: { query: {},
+							link: ['user+transaction']
+						} 
+					});
+					server.close(()=>{
+						done();
+					});
+				});
+			});
+		});
+		
+		it('runs a custom lookup as a passthrough', function(done){
+			this.timeout(10000);
+			const app = express();
+			app.use(bodyParser.json({strict: false}));
+			// A replication of the internal lookup;
+			let lookupCounter = 0;
+			let api;
+			const lookup = (type, context, cb)=>{
+				try{
+					let endpoint = api.getInstance(type);
+					let localIdentifier = endpoint.options.identifier||'id';
+					let outboundContext = context;
+					if(Array.isArray(context)){
+						let ctx = {};
+						ctx[localIdentifier] = {$in: context};
+						outboundContext = ctx;
+					}
+					request({ 
+						url: `http://localhost:8082/v1/${type}/list`, 
+						method, 
+						json: { 
+							query: outboundContext
+						} 
+					}, (err, res, results)=>{
+						cb(err, results.results);
+					});
+				}catch(ex){ should.not.exist(ex) }
+			};
+			api = new Perigress.DummyAPI({
+				subpath : 'audit-fk-api',
+				dir: __dirname
+			}, new Mongoish(), { lookup });
+			
+			const backendApp = express();
+			backendApp.use(bodyParser.json({strict: false}));
+			const backendApi = new Perigress.DummyAPI({
+				subpath : 'audit-fk-api',
+				dir: __dirname
+			}, new Mongoish());
+			api.attach(app, ()=>{
+				backendApi.attach(backendApp, ()=>{
+					const server = app.listen(8081, async (err)=>{
+						const backendServer = backendApp.listen(8082, async (err)=>{
+							let listRequest = await rqst({ 
+								url: `http://localhost:8081/v1/user/list`, 
+								method, json: { query: {},
+									link: ['user+transaction']
+								} 
+							});
+							server.close(()=>{
+								backendServer.close(()=>{
+									done();
+								});
+							});
+						});
+					});
+				});
+			});
+		});
+	});
 
 });
-
-// UTIL
-
-const testAPI = (p, cb)=>{
-	const app = express();
-	app.use(bodyParser.json({strict: false}));
-	const api = new Perigress.API({
-		subpath : p,
-		dir: __dirname
-	}, new Mongoish());
-	api.ready.then(()=>{
-		api.attach(app, ()=>{
-			const server = app.listen(port, ()=>{
-				cb(null, app, (cb)=>{
-					server.close(()=>{
-						cb();
-					});
-				}, (type)=>{
-					let joiSchema = require(path.join(
-						__dirname, p, 'v1', type+'.spec.js'
-					));
-					return joiSchema;
-				})
-			});
-		});
-	}).catch((ex)=>{
-		should.not.exist(ex);
-	});;
-};
-
-const rqst = (opts)=>{
-	return new Promise((resolve, reject)=>{
-		request(opts, (err, res, body)=>{
-			if(err) reject(err);
-			else resolve({res, body});
-		})
-	});
-}
-
-const hasConsistentObjectOfType = (port, type, id, field, value, cb)=>{
-	let callback = ks(cb);
-	let joiSchema = require(path.join(
-		__dirname, 'audit-fk-api', 'v1', type+'.spec.js'
-	));
-	request({
-		url: `http://localhost:${port}/v1/${type}/${id}`,
-		method: 'POST',
-		json: true
-	}, (err, res, result)=>{
-		should.not.exist(err);
-		request({
-			url: `http://localhost:${port}/v1/${type}/${id}/edit`,
-			method: 'POST',
-			json: {
-				firstName: 'Bob'
-			}
-		}, (editErr, editRes, editResult)=>{
-			should.not.exist(editErr);
-			request({
-				url: `http://localhost:${port}/v1/${type}/${id}`,
-				method: 'POST',
-				json: true
-			}, (secondErr, secondRes, secondResult)=>{
-				should.not.exist(secondErr);
-				Object.keys(result).should.deep.equal(Object.keys(secondResult))
-				callback(null, true);
-			});
-		});
-	});
-	return callback.return;
-};

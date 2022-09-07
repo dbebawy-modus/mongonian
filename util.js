@@ -22,6 +22,12 @@ const handleBatch = (ob, pageNumber, req, res, urlPath, instances, options, call
 	let primaryKey = config.primaryKey || 'id';
 	let identifier = ob.options.identifier || 'id';
 	let lookup = makeLookup(ob, primaryKey, identifier);
+	if(ob.api.actions && ob.api.actions.lookup){
+		lookup = ob.api.actions.lookup;
+	}
+	if(ob.options.actions && ob.options.actions.lookup){
+		lookup = ob.options.actions.lookup;
+	}
 	const populate = new Pop({
 		identifier,
 		linkSuffix: '',
@@ -38,14 +44,14 @@ const handleBatch = (ob, pageNumber, req, res, urlPath, instances, options, call
 			arrays.forEachEmission(objects[type], (object, index, objectSaved)=>{
 				let rendered = copyJSON(object);
 				ob.save(ob, identifier, type, rendered, (err, saved)=>{
+					if(!result[type]) result[type] = [];
+					result[type].push(saved);
 					Object.keys(object).forEach((key)=>{
 						if(typeof object[key] === 'function'){
 							if(saved[key]){
 								object[key](saved[key]);
 							}else{
-								//let value = object[key]();
-								//if(!value) 
-									throw new Error('save executed, but no key returned for \''+key+'\'');
+								throw new Error('save executed, but no key returned for \''+key+'\'');
 							}
 						}
 					});
@@ -56,8 +62,10 @@ const handleBatch = (ob, pageNumber, req, res, urlPath, instances, options, call
 			});
 		}, ()=>{
 			if(callback === true){
+				//console.log('???!', ob.api.internalData());
 				ob.returnContent(res, result, errorConfig, config);
 			}else{
+				//console.log('????', result);
 				callback(null, result);
 			}
 		});
@@ -66,7 +74,6 @@ const handleBatch = (ob, pageNumber, req, res, urlPath, instances, options, call
 
 const makeLookup = (ob, primaryKey, identifier)=>{
 	const lookup = (type, context, cb) => {
-		//console.log('LOOKUP', type, context);
 		let res = ob.api.endpoints.find((item)=>{
 			return item.options.name === type;
 		});
@@ -126,15 +133,13 @@ const makeLookup = (ob, primaryKey, identifier)=>{
 					return;
 				}
 				if(criteria[identifier] && criteria[identifier]['$in']){
-					return lookup(type, criteria[identifier]['$in'], cb)
+					return lookup(type, criteria[identifier]['$in'], cb, {config, options})
 				}
 			}else{
 				/*ob.api.internal(type, 'list', {}, (err, results)=>{
 					let endpoint = res;
 					let allResults = results.concat(res.instances);
 					let matchingResults = allResults.filter(ob.api.sift(criteria));
-					//console.log('!!!');
-					//console.log(criteria, matchingResults);
 					if(matchingResults.length){
 						cb && cb(null, matchingResults);
 					}
@@ -201,6 +206,12 @@ const handleList = (ob, pageNumber, urlPath, instances, options, callback)=>{
 	let primaryKey = config.primaryKey || 'id';
 	let identifier = ob.options.identifier || 'id';
 	let lookup = makeLookup(ob, primaryKey, identifier);
+	if(ob.api.actions && ob.api.actions.lookup){
+		lookup = ob.api.actions.lookup;
+	}
+	if(ob.options.actions && ob.options.actions.lookup){
+		lookup = ob.options.actions.lookup;
+	}
 	let seeds = [];
 	let seed = options.seed|| ob.options.seed || config.seed || '3c38adefd2f5bf4';
 	let pageSize = (options.page && options.page.size) || config.defaultSize || 30;
@@ -246,46 +257,26 @@ const handleList = (ob, pageNumber, urlPath, instances, options, callback)=>{
 	});
 	let fillList = (seeds, options, cb)=>{
 		let items = [];
-		arrays.forEachEmission(seeds, (seed, index, done)=>{
-			if(instances[seed]){
-				items[index] = instances[seed];
-				if(
-					config.foreignKey &&
-					(options.internal || options.link || options.external)
-				){
-					//tpe is like: ['userTransaction:user:transaction']
-					let tpe = getExpansions(options, config);
-					populate.tree(ob.options.name, items[index], tpe, (err, tree)=>{
+		lookup(ob.options.name, seeds, (err, res)=>{
+			if(
+				config.foreignKey &&
+				(options.internal || options.link || options.external)
+			){
+				//tpe is like: ['userTransaction:user:transaction']
+				let tpe = getExpansions(options, config);
+				arrays.forEachEmission(res, (item, index, finish)=>{
+					populate.tree(ob.options.name, item, tpe, (err, tree)=>{
 						items[index] = tree;
-						done();
+						finish();
 					});
-				}else{
-					done();
-				}
+				}, ()=>{
+					cb(err, items);
+				});
 			}else{
-				if(
-					config.foreignKey &&
-					(options.internal || options.link || options.external)
-				){
-					//tpe is like: ['userTransaction:user:transaction']
-					let tpe = getExpansions(options, config);
-					ob.getInstance(seed, (err, generated)=>{
-						populate.tree(ob.options.name, generated, tpe, (err, tree)=>{
-							items[index] = tree;
-							done();
-						});
-					});
-				}else{
-					ob.getInstance( seed, (err, generated)=>{
-						generated[primaryKey] = seed;
-						items[index] = generated;
-						done();
-					});
-				}
+				items = items.concat(res)
+				cb(err, items);
 			}
-		}, ()=>{
-			cb(null, items);
-		});
+		}, {config, options});
 	}
 	let writeResults = (results, set, size)=>{
 		if(config.total){

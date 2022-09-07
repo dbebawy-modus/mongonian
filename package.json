@@ -26,16 +26,17 @@
     "postman-request": "^2.88.1-postman.31"
   },
   "scripts": {
-    "test": "./node_modules/mocha/bin/_mocha"
+    "test": "./test-runner.js test/audit-fk-api"
   },
   "dependencies": {
-    "@perigress/perigress": "0.1.4",
+    "@perigress/perigress": "0.1.5",
     "async-arrays": "^1.0.1",
     "es6-template-strings": "^2.0.1",
     "json-schema-faker": "^0.5.0-rcv.44",
     "jsonschema": "^1.4.1",
     "kitchen-sync": "0.0.1",
     "object-accessor": "0.0.4",
-    "tree-pop": "0.0.6"
+    "object-hash": "^3.0.0",
+    "tree-pop": "0.0.7"
   }
 }

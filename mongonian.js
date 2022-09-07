@@ -2,6 +2,7 @@ const peri = '@perigress/perigress';
 const OutputFormat = require(peri+'/src/output-format.js');
 const template = require('es6-template-strings');
 const arrays = require('async-arrays');
+const hash = require('object-hash');
 const access = require('object-accessor');
 const validate = require('jsonschema').validate;
 const jsonSchemaFaker = require('json-schema-faker');
@@ -51,6 +52,20 @@ const getUrls = (config, pathOptions, endpoint)=>{
 			(
 				(config.paths && config.paths.edit) ||
 				'${basePath}/:${primaryKey}/edit'
+			),
+			pathOptions
+		),
+		search : template(
+			(
+				(config.paths && config.paths.search) ||
+				'${basePath}/search'
+			),
+			pathOptions
+		),
+		aggregation : template(
+			(
+				(config.paths && config.paths.aggregation) ||
+				'${basePath}/aggregation'
 			),
 			pathOptions
 		),
@@ -145,26 +160,31 @@ const QueryDocumentSchema = {
 
 const Mongonian = OutputFormat.extend({
 	mutateEndpoint : function(endpoint){
-		endpoint.list = function(options, cb){
+		if(this.options.actions){
+			Object.keys(this.options.actions).forEach((key)=>{
+				if(!endpoint[key]) endpoint[key] = this.options.actions[key];
+			});
+		}
+		if(!endpoint.list) endpoint.list = function(options, cb){
 			let callback = ks(cb);
 			try{
-			handleList(
-				endpoint, 
-				(options.pageNumber?parseInt(options.pageNumber):1), 
-				`js://${endpoint.options.name}/`, 
-				endpoint.instances, 
-				options, 
-				(err, returnValue, set, len, write)=>{
-					callback(null, set);
-				}
-			);
-		}catch(ex){
-			console.log(ex);
-		}
+				handleList(
+					endpoint, 
+					(options.pageNumber?parseInt(options.pageNumber):1), 
+					`js://${endpoint.options.name}/`, 
+					endpoint.instances, 
+					options, 
+					(err, returnValue, set, len, write)=>{
+						callback(null, set);
+					}
+				);
+			}catch(ex){
+				console.log(ex);
+			}
 			return callback.return;
 		}
 		
-		endpoint.batch = function(options, tree, cb){
+		if(!endpoint.batch) endpoint.batch = function(options, tree, cb){
 			let callback = ks(cb);
 			try{
 				handleBatch(
@@ -183,7 +203,76 @@ const Mongonian = OutputFormat.extend({
 			return callback.return;
 		}
 		
-		endpoint.create = function(options, cb){
+		if(!endpoint.search) endpoint.search = function(options, cb){
+			let callback = ks(cb);
+			//implement
+			return callback.return;
+		}
+		
+		const aggOps = {
+			sum : (aggregate, currentValue, currentItem, meta)=>{
+				return (aggregate || 0) + currentValue;
+			},
+			count : (aggregate, currentValue, currentItem, meta)=>{
+				return (aggregate || 0) + 1;
+			}
+		}
+		if(!endpoint.aggregation) endpoint.aggregation = function(options, cb){
+			let callback = ks(cb);
+			//implement
+			let identifiers = [];
+			let aggregations = [];
+			Object.keys(options.$group).forEach((key)=>{
+				if(typeof options.$group[key] === 'object') aggregations.push({
+					field: key,
+					operation: (Object.keys(options.$group[key])[0]||'').slice(1),
+					target: (options.$group[key][Object.keys(options.$group[key])[0]]||'').slice(1)
+				});
+				else identifiers.push({
+					field: key,
+					source: options.$group[key]
+				})
+			});
+			let result = {};
+			endpoint.api.internal(endpoint.options.name, 'list', {
+				query: options.$match
+			}, (err, results)=>{
+				let aggregates = {};
+				results.forEach((item)=>{
+					let idVals = {};
+					identifiers.forEach((identifier)=>{
+						idVals[identifier.field] = item[identifier.source];
+					});
+					let idHash = hash(idVals);
+					if(!aggregates[idHash]){
+						aggregates[idHash] = {
+							total: 0,
+							values: {}
+						}
+						Object.keys(idVals).forEach((key)=>{
+							aggregates[idHash].values[key] = idVals[key];
+						})
+					}
+					aggregations.forEach((aggregation)=>{
+						aggregates[idHash].values[aggregation.field] = aggOps[aggregation.operation](
+							aggregates[idHash].values[aggregation.field],
+							item[aggregation.target],
+							item,
+							aggregates[idHash]
+						)
+					});
+					aggregates[idHash].total++;
+				});
+				setTimeout(()=>{
+					callback(null, Object.keys(aggregates).map((key)=>{
+						return aggregates[key].values;
+					}));
+				})
+			});
+			return callback.return;
+		}
+		
+		if(!endpoint.create) endpoint.create = function(options, cb){
 			let callback = ks(cb);
 			if(validate(options.body, endpoint.originalSchema)){
 				endpoint.instances[options.body[primaryKey]] = options.body;
@@ -194,7 +283,7 @@ const Mongonian = OutputFormat.extend({
 			return callback.return;
 		}
 		
-		endpoint.read = function(options, cb){
+		if(!endpoint.read) endpoint.read = function(options, cb){
 			let callback = ks(cb);
 			let config = endpoint.config();
 			let primaryKey = config.primaryKey || 'id';
@@ -208,7 +297,7 @@ const Mongonian = OutputFormat.extend({
 			return callback.return;
 		}
 		
-		endpoint.update = function(options, cb){
+		if(!endpoint.update) endpoint.update = function(options, cb){
 			let callback = ks(cb);
 			let config = endpoint.config();
 			let primaryKey = config.primaryKey || 'id';
@@ -233,7 +322,7 @@ const Mongonian = OutputFormat.extend({
 			return callback.return;
 		}
 		
-		endpoint.delete = function(options, cb){
+		if(!endpoint.delete) endpoint.delete = function(options, cb){
 			let callback = ks(cb);
 			
 			return callback.return;
@@ -334,6 +423,30 @@ const Mongonian = OutputFormat.extend({
 			let options = typeof req.body === 'string'?req.params:req.body;
 			handleListPage(endpoint, 1, req, res, urlPath, endpoint.instances, options);
 		});
+		
+		if(this.options.search){
+			expressInstance[
+				endpoint.endpointOptions.method.toLowerCase()
+			](urls.search, (req, res)=>{
+				let options = typeof req.body === 'string'?req.params:req.body;
+				throw new Error('not implemented');
+			});
+		}
+		
+		if(this.options.aggregation){
+			expressInstance[
+				endpoint.endpointOptions.method.toLowerCase()
+			](urls.aggregation, (req, res)=>{
+				let options = typeof req.body === 'string'?req.params:req.body;
+				if(!(options['$group'] || options.group)) throw new Error('nothing to group');
+				endpoint.aggregation({
+					$group: (options['$group'] || options.group),
+					$match: (options['$match'] || options.query)
+				}, (err, result)=>{
+					endpoint.returnContent(res, {success: true, result: result}, errorConfig, config);
+				});
+			});
+		}
 		
 		expressInstance[
 			endpoint.endpointOptions.method.toLowerCase()
