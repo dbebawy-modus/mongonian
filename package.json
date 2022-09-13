@@ -1,6 +1,6 @@
 {
   "name": "@perigress/mongonian",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "main": "mongonian.js",
   "description": "Mongo like output format for Perigress",
   "keywords": [
@@ -37,6 +37,6 @@
     "kitchen-sync": "0.0.1",
     "object-accessor": "0.0.4",
     "object-hash": "^3.0.0",
-    "tree-pop": "0.0.7"
+    "tree-pop": "0.0.8"
   }
 }
