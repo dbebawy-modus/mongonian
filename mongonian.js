@@ -160,9 +160,9 @@ const QueryDocumentSchema = {
 
 const Mongonian = OutputFormat.extend({
 	mutateEndpoint : function(endpoint){
-		if(this.options.actions){
-			Object.keys(this.options.actions).forEach((key)=>{
-				if(!endpoint[key]) endpoint[key] = this.options.actions[key];
+		if(endpoint.api.actions){
+			Object.keys(endpoint.api.actions).forEach((key)=>{
+				if(!endpoint[key]) endpoint[key] = endpoint.api.actions[key];
 			});
 		}
 		if(!endpoint.list) endpoint.list = function(options, cb){
@@ -447,7 +447,6 @@ const Mongonian = OutputFormat.extend({
 				});
 			});
 		}
-		
 		expressInstance[
 			endpoint.endpointOptions.method.toLowerCase()
 		](urls.save, (req, res)=>{

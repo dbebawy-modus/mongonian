@@ -77,7 +77,7 @@ const makeLookup = (ob, primaryKey, identifier)=>{
 		let res = ob.api.endpoints.find((item)=>{
 			return item.options.name === type;
 		});
-		if(!res) return cb(new Error('Type not Found!'));
+		if(!res) return cb(new Error(`Type not Found(${type})!`));
 		if(Array.isArray(context)){
 			let items = [];
 			arrays.forEachEmission(context, (seed, index, done)=>{
@@ -94,7 +94,6 @@ const makeLookup = (ob, primaryKey, identifier)=>{
 			}, ()=>{
 				let keys = Object.keys(res.instances);
 				cb && cb(null, items);
-				
 			});
 		}else{
 			const criteria = context;
@@ -333,47 +332,51 @@ const handleList = (ob, pageNumber, urlPath, instances, options, callback)=>{
 					}
 					fillList(extraReturnSeeds, options, (err, extraFilled)=>{
 						extraFilled.forEach((item)=>{
-							Object.keys(options.query).forEach((key)=>{
-								if(options.query[key]['$eq']){
-									item[key] = options.query[key]['$eq'];
-								}
-								if(options.query[key]['$in'] && Array.isArray(options.query[key]['$in'])){
-									let index = Math.round(Math.random() * options.query[key]['$in'].length);
-									item[key] = options.query[key]['$in'][index];
-								}
-								if(options.query[key]['$lt'] || options.query[key]['$gt']){
-									if(Number.isInteger(options.query[key]['$lt'] || options.query[key]['$gt'])){
-										const lower = options.query[key]['$gt'] !== null?options.query[key]['$gt']:Number.MIN_SAFE_INTEGER;
-										const upper = options.query[key]['$lt'] || Number.MAX_SAFE_INTEGER;
-										const diff =  upper - lower;
-										let result = Math.floor(Math.random()*diff)+ lower;
-										item[key] = result;
-									}else{
-										if( typeof (
-												options.query[key]['$lt'] || 
-												options.query[key]['$gt']
-											) === 'string'
-										){
-											const lower = new Date(options.query[key]['$gt'] || '01/01/1970 00:00:00 UTC');
-											const upper = new Date(options.query[key]['$lt']);
-											const lowerLimit = lower.getTime()
-											const diff =  upper.getTime() - lower.getTime();
-											let result = Math.floor(Math.random() * diff) + lowerLimit;
-											let resultDate = new Date();
-											resultDate.setTime(result);
-											item[key] = resultDate.toString();
-										}else{
-											const lower = options.query[key]['$gt'] || Number.MIN_VALUE;
-											const upper = options.query[key]['$lt'] || Number.MAX_VALUE;
+							try{
+								Object.keys(options.query).forEach((key)=>{
+									if(options.query[key]['$eq']){
+										item[key] = options.query[key]['$eq'];
+									}
+									if(options.query[key]['$in'] && Array.isArray(options.query[key]['$in'])){
+										let index = Math.round(Math.random() * options.query[key]['$in'].length);
+										item[key] = options.query[key]['$in'][index];
+									}
+									if(options.query[key]['$lt'] || options.query[key]['$gt']){
+										if(Number.isInteger(options.query[key]['$lt'] || options.query[key]['$gt'])){
+											const lower = options.query[key]['$gt'] !== null?options.query[key]['$gt']:Number.MIN_SAFE_INTEGER;
+											const upper = options.query[key]['$lt'] || Number.MAX_SAFE_INTEGER;
 											const diff =  upper - lower;
-											let result = Math.random() * diff + lower;
+											let result = Math.floor(Math.random()*diff)+ lower;
 											item[key] = result;
+										}else{
+											if( typeof (
+													options.query[key]['$lt'] || 
+													options.query[key]['$gt']
+												) === 'string'
+											){
+												const lower = new Date(options.query[key]['$gt'] || '01/01/1970 00:00:00 UTC');
+												const upper = new Date(options.query[key]['$lt']);
+												const lowerLimit = lower.getTime()
+												const diff =  upper.getTime() - lower.getTime();
+												let result = Math.floor(Math.random() * diff) + lowerLimit;
+												let resultDate = new Date();
+												resultDate.setTime(result);
+												item[key] = resultDate.toString();
+											}else{
+												const lower = options.query[key]['$gt'] || Number.MIN_VALUE;
+												const upper = options.query[key]['$lt'] || Number.MAX_VALUE;
+												const diff =  upper - lower;
+												let result = Math.random() * diff + lower;
+												item[key] = result;
+											}
 										}
 									}
+								});
+								if(options.persistGenerated){
+									ob.instances[item[identifier]] = item;
 								}
-							});
-							if(options.persistGenerated){
-								ob.instances[item[identifier]] = item;
+							}catch(ex){
+								console.log('ERROR', ex);
 							}
 							set.push(item);
 						});
