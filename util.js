@@ -37,38 +37,40 @@ const handleBatch = (ob, pageNumber, req, res, urlPath, instances, options, call
 		lookup
 	});
 	let tpe = getExpansions(options, config);
-	populate.deconstruct(ob.options.name, options.objects[0], tpe, (err, objects)=>{
-		let result = {};
-		let order = populate.orderBatches(objects);
-		arrays.forEachEmission(order, (type, index, complete)=>{
-			arrays.forEachEmission(objects[type], (object, index, objectSaved)=>{
-				let rendered = copyJSON(object);
-				ob.save(ob, identifier, type, rendered, (err, saved)=>{
-					if(!result[type]) result[type] = [];
-					result[type].push(saved);
-					Object.keys(object).forEach((key)=>{
-						if(typeof object[key] === 'function'){
-							if(saved[key]){
-								object[key](saved[key]);
-							}else{
-								throw new Error('save executed, but no key returned for \''+key+'\'');
+	let result = {};
+	arrays.forEachEmission(options.objects, (object, obIndex, objectFinished)=>{
+		populate.deconstruct(ob.options.name, object, tpe, (err, objects)=>{
+			let order = populate.orderBatches(objects);
+			arrays.forEachEmission(order, (type, index, complete)=>{
+				arrays.forEachEmission(objects[type], (object, index, objectSaved)=>{
+					let rendered = copyJSON(object);
+					ob.save(ob, identifier, type, rendered, (err, saved)=>{
+						if(!result[type]) result[type] = [];
+						result[type].push(saved);
+						Object.keys(object).forEach((key)=>{
+							if(typeof object[key] === 'function'){
+								if(saved[key]){
+									object[key](saved[key]);
+								}else{
+									throw new Error('save executed, but no key returned for \''+key+'\'');
+								}
 							}
-						}
+						});
+						objectSaved();
 					});
-					objectSaved();
+				}, ()=>{
+					complete();
 				});
 			}, ()=>{
-				complete();
+				objectFinished();
 			});
-		}, ()=>{
-			if(callback === true){
-				//console.log('???!', ob.api.internalData());
-				ob.returnContent(res, result, errorConfig, config);
-			}else{
-				//console.log('????', result);
-				callback(null, result);
-			}
 		});
+	}, ()=>{
+		if(callback === true){
+			ob.returnContent(res, result, errorConfig, config);
+		}else{
+			callback(null, result);
+		}
 	});
 };
 
@@ -159,7 +161,7 @@ const makeLookup = (ob, primaryKey, identifier)=>{
 }
 
 const getExpansions = (options, config)=>{
-	let tpe;
+	let tpe = [];
 	if(
 		config.foreignKey &&
 		(options.internal || options.link || options.external)
