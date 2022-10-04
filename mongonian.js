@@ -174,6 +174,7 @@ const Mongonian = OutputFormat.extend({
 					`js://${endpoint.options.name}/`, 
 					endpoint.instances, 
 					options, 
+					{},
 					(err, returnValue, set, len, write)=>{
 						callback(null, set);
 					}
@@ -287,13 +288,9 @@ const Mongonian = OutputFormat.extend({
 			let callback = ks(cb);
 			let config = endpoint.config();
 			let primaryKey = config.primaryKey || 'id';
-			if(endpoint.instances[options[primaryKey]]){
-				callback(null, endpoint.instances[options[primaryKey]])
-			}else{
-				endpoint.generate(options[primaryKey], (err, generated)=>{
-					callback(null, generated)
-				});
-			}
+			endpoint.getInstance(options[primaryKey], (err, item)=>{
+				callback(null, item);
+			});
 			return callback.return;
 		}
 		
@@ -324,7 +321,22 @@ const Mongonian = OutputFormat.extend({
 		
 		if(!endpoint.delete) endpoint.delete = function(options, cb){
 			let callback = ks(cb);
-			
+			let config = endpoint.config();
+			let primaryKey = config.primaryKey || 'id';
+			endpoint.getInstance(options[primaryKey], (err, item)=>{
+				if(options[primaryKey]){
+					if(endpoint.instances[options[primaryKey]]){
+						delete endpoint.instances[options[primaryKey]];
+					}
+					if(endpoint.deleted && (endpoint.deleted.indexOf(options[primaryKey]) === -1)){
+						endpoint.deleted.push(options[primaryKey]);
+					}
+					callback(null, {});
+				}else{
+					//fail
+					callback(new Error('Failed to update item'))
+				}
+			});
 			return callback.return;
 		}
 	},

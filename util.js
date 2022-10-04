@@ -9,7 +9,7 @@ const access = require('object-accessor');
 const handleListPage = (ob, pageNumber, req, res, urlPath, instances, options = {})=>{
 	let config = ob.config();
 	let errorConfig = ob.errorSpec();
-	handleList(ob, pageNumber, urlPath, instances, options, (err, returnValue, set, len, write)=>{
+	handleList(ob, pageNumber, urlPath, instances, options, req, (err, returnValue, set, len, write)=>{
 		write(returnValue, set, len);
 		ob.returnContent(res, returnValue, errorConfig, config);
 	});
@@ -39,7 +39,7 @@ const handleBatch = (ob, pageNumber, req, res, urlPath, instances, options, call
 	let tpe = getExpansions(options, config);
 	let result = {};
 	arrays.forEachEmission(options.objects, (object, obIndex, objectFinished)=>{
-		populate.deconstruct(ob.options.name, object, tpe, (err, objects)=>{
+		populate.deconstruct(ob.options.name, object, tpe, res, (err, objects)=>{
 			let order = populate.orderBatches(objects);
 			arrays.forEachEmission(order, (type, index, complete)=>{
 				arrays.forEachEmission(objects[type], (object, index, objectSaved)=>{
@@ -75,7 +75,8 @@ const handleBatch = (ob, pageNumber, req, res, urlPath, instances, options, call
 };
 
 const makeLookup = (ob, primaryKey, identifier)=>{
-	const lookup = (type, context, cb) => {
+	const lookup = (type, context, req, cb) => {
+		let lcs = (new Error()).stack;
 		let res = ob.api.endpoints.find((item)=>{
 			return item.options.name === type;
 		});
@@ -95,6 +96,7 @@ const makeLookup = (ob, primaryKey, identifier)=>{
 				}
 			}, ()=>{
 				let keys = Object.keys(res.instances);
+				if(typeof cb !== "function") console.log('>>>', lcs)
 				cb && cb(null, items);
 			});
 		}else{
@@ -128,13 +130,14 @@ const makeLookup = (ob, primaryKey, identifier)=>{
 							let items = [];
 							res.instances[generated[identifier]] = generated;
 							items[0] = generated;
+							if(typeof cb !== "function") console.log('>>>', lcs)
 							cb && cb(null, items);
 						});
 					}
 					return;
 				}
 				if(criteria[identifier] && criteria[identifier]['$in']){
-					return lookup(type, criteria[identifier]['$in'], cb, {config, options})
+					return lookup(type, criteria[identifier]['$in'], req, cb, {config, options})
 				}
 			}else{
 				/*ob.api.internal(type, 'list', {}, (err, results)=>{
@@ -200,7 +203,7 @@ const getExpansions = (options, config)=>{
 	return tpe;
 }
 
-const handleList = (ob, pageNumber, urlPath, instances, options, callback)=>{
+const handleList = (ob, pageNumber, urlPath, instances, options, req, callback)=>{
 	let config = ob.config();
 	let errorConfig = ob.errorSpec();
 	//TODO: make default come from datasource
@@ -258,7 +261,7 @@ const handleList = (ob, pageNumber, urlPath, instances, options, callback)=>{
 	});
 	let fillList = (seeds, options, cb)=>{
 		let items = [];
-		lookup(ob.options.name, seeds, (err, res)=>{
+		lookup(ob.options.name, seeds, req, (err, res)=>{
 			if(
 				config.foreignKey &&
 				(options.internal || options.link || options.external)
@@ -266,7 +269,7 @@ const handleList = (ob, pageNumber, urlPath, instances, options, callback)=>{
 				//tpe is like: ['userTransaction:user:transaction']
 				let tpe = getExpansions(options, config);
 				arrays.forEachEmission(res, (item, index, finish)=>{
-					populate.tree(ob.options.name, item, tpe, (err, tree)=>{
+					populate.tree(ob.options.name, item, tpe, res, (err, tree)=>{
 						items[index] = tree;
 						finish();
 					});

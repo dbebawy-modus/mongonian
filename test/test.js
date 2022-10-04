@@ -447,6 +447,40 @@ describe('perigress', ()=>{
 				should.not.exist(ex);
 			}
 		});
+        
+        it('saves changes + deletes', (done)=>{
+            try{
+                const api = new Perigress.DummyAPI({
+                    subpath : 'wkr-api',
+                    dir: __dirname
+                }, new Mongoish());
+                api.attach(null, ()=>{
+                    api.internal('user', 'list', {}, (err, users)=>{
+                        let item = users[0];
+                        item.firstName = 'Bob';
+                        api.internal('user', 'update', { 
+                            id : item.id, 
+                            body: item 
+                        }, (err, savedUser)=>{
+                            should.exist(savedUser);
+                            api.internal('user', 'read', { id : item.id}, (err, user)=>{
+                                user.firstName.should.equal('Bob');
+                                api.internal('user', 'delete', { id : item.id}, (err, result)=>{
+                                    api.internal('user', 'read', { id : item.id}, (err, user)=>{
+                                        should.not.exist(err);
+                                        should.not.exist(user);
+                                        done();
+                                    });
+                                });
+                            });
+                        });
+                    });
+                });
+            }catch(ex){
+                console.log(ex)
+                should.not.exist(ex);
+            }
+        });
 		
 	});
 	// Disable the following block for vanilla mocha compatibility
@@ -542,7 +576,7 @@ describe('perigress', ()=>{
 			app.use(bodyParser.json({strict: false}));
 			// A replication of the internal lookup;
 			let lookupCounter = 0;
-			const lookup = (type, context, cb)=>{
+			const lookup = (type, context, req, cb)=>{
 				let endpoint = api.getInstance(type);
 				lookupCounter++;
 				if(Array.isArray(context)){
@@ -566,12 +600,12 @@ describe('perigress', ()=>{
 						Object.keys(context).length === 1
 					){
 						if(context.id){
-							return lookup(type, [context.id], cb)
+							return lookup(type, [context.id], req, cb)
 						}else{
 							let config = endpoint.config();
 							let key = Object.keys(context)[0];
 							let parts = config.foreignKey(key, ()=>{ return api.getTypes() });
-							return lookup(parts.type, [context[key]], cb);
+							return lookup(parts.type, [context[key]], req, cb);
 						}
 					}
 				}
@@ -601,14 +635,14 @@ describe('perigress', ()=>{
 			app.use(bodyParser.json({strict: false}));
 			// A replication of the internal lookup;
 			let lookupCounter = 0;
-			const lookup = (type, context, cb)=>{
+			const lookup = (type, context, req, cb)=>{
 				let endpoint = api.getInstance(type);
 				let id = endpoint.options.identifier || 'id';
 				lookupCounter++;
 				if(Array.isArray(context)){
 					let results = context.slice();
 					arrays.forEachEmission(results, (id, index, done)=>{
-						lookup(type, id, (err, item)=>{
+						lookup(type, id, req, (err, item)=>{
 							results[index] = item[0];
 							done();
 						});
@@ -663,7 +697,7 @@ describe('perigress', ()=>{
 			// A replication of the internal lookup;
 			let lookupCounter = 0;
 			let api;
-			const lookup = (type, context, cb)=>{
+			const lookup = (type, context, req, cb)=>{
 				try{
 					let endpoint = api.getInstance(type);
 					let localIdentifier = endpoint.options.identifier||'id';
