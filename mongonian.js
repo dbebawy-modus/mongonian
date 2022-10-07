@@ -207,6 +207,16 @@ const Mongonian = OutputFormat.extend({
 		if(!endpoint.search) endpoint.search = function(options, cb){
 			let callback = ks(cb);
 			//implement
+			let searchToRegexOptions = JSON.parse(JSON.stringify(options));
+			if(!searchToRegexOptions.wildcard){
+				return endpoint.returnError(res, new Error("searching requires the wildcard property"), errorConfig, config);
+			}else{
+				let regex = new RegExp(searchToRegexOptions.wildcard.query.replace(/\*/g, ".*"));
+				searchToRegexOptions.query[searchToRegexOptions.wildcard.path] = {$regex: regex};
+			}
+			endpoint.list(searchToRegexOptions, (err, results)=>{
+				callback(err, results);
+			});
 			return callback.return;
 		}
 		
@@ -441,7 +451,9 @@ const Mongonian = OutputFormat.extend({
 				endpoint.endpointOptions.method.toLowerCase()
 			](urls.search, (req, res)=>{
 				let options = typeof req.body === 'string'?req.params:req.body;
-				throw new Error('not implemented');
+				endpoint.search(options, (err, results)=>{
+					endpoint.returnContent(res, {success: true, result: results}, errorConfig, config);
+				});
 			});
 		}
 		

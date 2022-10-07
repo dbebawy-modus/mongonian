@@ -492,7 +492,7 @@ describe('perigress', ()=>{
 			});
 		}, 'test/api', new Mongoish());
 	}else{
-		describe.skip('[API SUITE]', ()=>{ it('were the tests run directly with mocha?') });
+		describe('[API SUITE]', ()=>{ it('were the tests run directly with mocha?') });
 	}
 	
 	describe('optional endpoints', ()=>{
@@ -532,7 +532,7 @@ describe('perigress', ()=>{
 			}
 		});
 		
-		it.skip('can perform wildcard searches', (done)=>{
+		it('can perform wildcard searches', (done)=>{
 			try{
 				const app = express();
 				app.use(bodyParser.json({strict: false}));
@@ -544,26 +544,37 @@ describe('perigress', ()=>{
 				}));
 				api.attach(app, ()=>{
 					const server = app.listen(port, async (err)=>{
-						let listRequest = await rqst({ 
+						request({ 
 							url: `http://localhost:${port}/v1/transaction/search`, 
 							method, json: { 
-								query: {},
-								group: { 
-									_id: "card_id",
-									sumTotal: {$sum: "$total"},
-									countTotal: {$count: "$total"} 
-								}
+								query: {
+                                    total: {$eq:10.52}
+                                },
+                                generate: 1,
+                                wildcard: {
+                                    query: "CHA*",
+                                    path: "network"
+                                }
 							} 
-						});
-						listRequest.body.result.length.should.equal(20);
-						server.close(()=>{
-							done();
-						});
+						}, (err, res, response)=>{
+                            should.not.exist(err);
+                            should.exist(response);
+                            should.not.exist(response.error);
+                            should.exist(response.result);
+                            should.exist(response.result.length);
+                            response.result.length.should.be.above(0);
+                            server.close(()=>{
+                                done();
+                            });
+                        });
 					});
 				});
 			}catch(ex){
 				console.log(ex)
 				should.not.exist(ex);
+                server.close(()=>{
+                    done();
+                });
 			}
 		});
 		
