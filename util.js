@@ -96,7 +96,6 @@ const makeLookup = (ob, primaryKey, identifier)=>{
 				}
 			}, ()=>{
 				let keys = Object.keys(res.instances);
-				if(typeof cb !== "function") console.log('>>>', lcs)
 				cb && cb(null, items);
 			});
 		}else{
@@ -130,7 +129,6 @@ const makeLookup = (ob, primaryKey, identifier)=>{
 							let items = [];
 							res.instances[generated[identifier]] = generated;
 							items[0] = generated;
-							if(typeof cb !== "function") console.log('>>>', lcs)
 							cb && cb(null, items);
 						});
 					}
@@ -216,9 +214,70 @@ const handleList = (ob, pageNumber, urlPath, instances, options, req, callback)=
 	if(ob.options.actions && ob.options.actions.lookup){
 		lookup = ob.options.actions.lookup;
 	}
+	const populate = new Pop({
+		identifier,
+		linkSuffix: '',
+		expandable: ob.options.expandable,
+		listSuffix: 'list',
+		join: config.foreignKeyJoin,
+		lookup
+	});
 	let seeds = [];
-	let seed = options.seed|| ob.options.seed || config.seed || '3c38adefd2f5bf4';
 	let pageSize = (options.page && options.page.size) || config.defaultSize || 30;
+	let resultSpec = ob.resultSpec();
+	let cleaned = ob.cleanedSchema(resultSpec.returnSpec);
+	let pageVars = ()=>{
+		let pageOpts = options.page || {};
+		let size = pageOpts.size || config.defaultSize || 30;
+		let pageFrom0 = pageNumber - 1;
+		let offset = pageFrom0 * size;
+		let count = Math.ceil(seeds.length/size);
+		return {size, pageFrom0, offset, count};
+	};
+	let writeResults = (results, set, size)=>{
+		if(config.total){
+			access.set(results, config.total, size || seeds.length);
+		}
+		if(config.page){
+			let opts = pageVars();
+			if(config.page.size){
+				access.set(results, config.page.size, opts.size);
+			}
+			if(config.page.count){
+				access.set(results, config.page.count, opts.count);
+			}
+			if(config.page.next && pageNumber < opts.count){
+				access.set(results, config.page.next, urlPath+'/list/'+(pageNumber+1));
+			}
+			if(config.page.previous && pageNumber > 1){
+				access.set(results, config.page.previous, urlPath+'/list/'+(pageNumber-1));
+			}
+			if(config.page.number){
+				access.set(results, config.page.number, pageNumber);
+			}
+		}
+		access.set(results, resultSpec.resultSetLocation, set);
+	}
+	if(ob.api.doNotSeedLists || options.doNotSeedLists){
+		let items = [];
+		lookup(ob.options.name, options.query || {}, req, (err, res)=>{
+			if(
+				config.foreignKey &&
+				(options.internal || options.link || options.external)
+			){
+				//tpe is like: ['userTransaction:user:transaction']
+				let tpe = getExpansions(options, config);
+				populate.mutateForest(ob.options.name, res, tpe, req, (err, forest)=>{
+					callback(null, forest, forest, null, writeResults);
+				});
+			}else{
+				items = items.concat(res)
+				callback(null, items, items, null, writeResults);
+			}
+		}, {config, options});
+		return;
+	}
+	let seed = options.seed|| ob.options.seed || config.seed || '3c38adefd2f5bf4';
 	let gen = ob.makeGenerator(seed);
 	let idGen = null;
 	if(ob.schema.properties[primaryKey].type === 'string'){
@@ -249,16 +308,14 @@ const handleList = (ob, pageNumber, urlPath, instances, options, req, callback)=
 	}
 	//let items = [];
 	jsonSchemaFaker.option('random', () => gen.randomInt(0, 1000)/1000);
-	let resultSpec = ob.resultSpec();
-	let cleaned = ob.cleanedSchema(resultSpec.returnSpec);
-	const populate = new Pop({
+	/*const populate = new Pop({
 		identifier,
 		linkSuffix: '',
 		expandable: ob.options.expandable,
 		listSuffix: 'list',
 		join: config.foreignKeyJoin,
 		lookup
-	});
+	});*/
 	let fillList = (seeds, options, cb)=>{
 		let items = [];
 		lookup(ob.options.name, seeds, req, (err, res)=>{
@@ -282,38 +339,6 @@ const handleList = (ob, pageNumber, urlPath, instances, options, req, callback)=
 			}
 		}, {config, options});
 	}
-	let writeResults = (results, set, size)=>{
-		if(config.total){
-			access.set(results, config.total, size || seeds.length);
-		}
-		if(config.page){
-			let opts = pageVars();
-			if(config.page.size){
-				access.set(results, config.page.size, opts.size);
-			}
-			if(config.page.count){
-				access.set(results, config.page.count, opts.count);
-			}
-			if(config.page.next && pageNumber < opts.count){
-				access.set(results, config.page.next, urlPath+'/list/'+(pageNumber+1));
-			}
-			if(config.page.previous && pageNumber > 1){
-				access.set(results, config.page.previous, urlPath+'/list/'+(pageNumber-1));
-			}
-			if(config.page.number){
-				access.set(results, config.page.number, pageNumber);
-			}
-		}
-		access.set(results, resultSpec.resultSetLocation, set);
-	}
-	let pageVars = ()=>{
-		let pageOpts = options.page || {};
-		let size = pageOpts.size || config.defaultSize || 30;
-		let pageFrom0 = pageNumber - 1;
-		let offset = pageFrom0 * size;
-		let count = Math.ceil(seeds.length/size);
-		return {size, pageFrom0, offset, count};
-	};
 	jsonSchemaFaker.resolve(cleaned, [], process.cwd()).then((returnValue)=>{
 		if(!options.query){ // we are going to do only the work on the page
 			try{
@@ -343,7 +368,7 @@ const handleList = (ob, pageNumber, urlPath, instances, options, req, callback)=
 										item[key] = options.query[key]['$eq'];
 									}
 									if(options.query[key]['$in'] && Array.isArray(options.query[key]['$in'])){
-										let index = Math.round(Math.random() * options.query[key]['$in'].length);
+										let index = Math.round(Math.random() * (options.query[key]['$in'].length-1));
 										item[key] = options.query[key]['$in'][index];
 									}
 									if(options.query[key]['$lt'] || options.query[key]['$gt']){
