@@ -443,7 +443,10 @@ const Mongonian = OutputFormat.extend({
 			endpoint.endpointOptions.method.toLowerCase()
 		](urls.list, (req, res)=>{
 			let options = typeof req.body === 'string'?req.params:req.body;
-			handleListPage(endpoint, 1, req, res, urlPath, endpoint.instances, options);
+			let page = (config.page && config.page.number)?
+				parseInt(access.get(options, config.page.number)||'1'):
+				1;
+			handleListPage(endpoint, page, req, res, urlPath, endpoint.instances, options);
 		});
 		
 		if(this.options.search){

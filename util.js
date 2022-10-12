@@ -10,8 +10,8 @@ const handleListPage = (ob, pageNumber, req, res, urlPath, instances, options = 
 	let config = ob.config();
 	let errorConfig = ob.errorSpec();
 	handleList(ob, pageNumber, urlPath, instances, options, req, (err, returnValue, set, len, write)=>{
-		write(returnValue, set, len);
-		ob.returnContent(res, returnValue, errorConfig, config);
+		let result = write(returnValue, set, len);
+		ob.returnContent(res, result, errorConfig, config);
 	});
 };
 
@@ -257,6 +257,7 @@ const handleList = (ob, pageNumber, urlPath, instances, options, req, callback)=
 			}
 		}
 		access.set(results, resultSpec.resultSetLocation, set);
+		return results;
 	}
 	if(ob.api.doNotSeedLists || options.doNotSeedLists){
 		let items = [];
