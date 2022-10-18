@@ -702,13 +702,14 @@ describe('perigress', ()=>{
 							});
                             try{
                                 contexts.length.should.equal(3);
-                                //Object.keys(contexts[0]);
                                 should.exist(contexts[1].user_id);
                                 Array.isArray(contexts[1].user_id['$in']).should.equal(true);
-                                contexts[1].user_id['$in'].length.should.equal(listRequest.body.length);
-                                //should.exist(contexts[2].transaction_id);
-                                //Array.isArray(contexts[2].transaction_id['$in']).should.equal(true);
-							    server.close(()=>{
+                                contexts[1].user_id['$in'].length.should.equal(
+                                    listRequest.body.results.length
+                                );
+                                should.exist(contexts[2].id);
+                                Array.isArray(contexts[2].id['$in']).should.equal(true);
+                                server.close(()=>{
 								    backendServer.close(()=>{
 									    done();
 								    });

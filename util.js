@@ -269,11 +269,11 @@ const handleList = (ob, pageNumber, urlPath, instances, options, req, callback)=
 				//tpe is like: ['userTransaction:user:transaction']
 				let tpe = getExpansions(options, config);
 				populate.mutateForest(ob.options.name, res, tpe, req, (err, forest)=>{
-					callback(null, forest, forest, null, writeResults);
+					callback(null, {}, forest, null, writeResults);
 				});
 			}else{
 				items = items.concat(res)
-				callback(null, items, items, null, writeResults);
+				callback(null, {}, items, null, writeResults);
 			}
 		}, {config, options});
 		return;
