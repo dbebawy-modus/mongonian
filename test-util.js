@@ -76,4 +76,37 @@ const hasConsistentObjectOfType = (port, type, id, field, value, cb)=>{
 	return callback.return;
 };
 
-module.exports = {testAPI, rqst, hasConsistentObjectOfType, port, dir};
+const passthruAPIFromLookup = (basePort, baseDir, apiType, lookup, cb)=>{
+	const app = express();
+	const port = basePort;
+	const backendPort = basePort + 1;
+	
+	app.use(bodyParser.json({strict: false}));
+	// A replication of the internal lookup;
+	let api;
+	api = new Perigress.DummyAPI({
+		subpath: apiType,
+		dir: baseDir
+	}, new Mongoish(), { lookup });
+	api.doNotSeedLists = true;
+	//const lookup = lookupGenerator(api);
+	
+	const backendApp = express();
+	backendApp.use(bodyParser.json({strict: false}));
+	const backendApi = new Perigress.DummyAPI({
+		subpath : apiType,
+		dir: baseDir
+	}, new Mongoish());
+	api.attach(app, ()=>{
+		backendApi.attach(backendApp, ()=>{
+			const server = app.listen(port, async (err)=>{
+				const backendServer = backendApp.listen(backendPort, async (err2)=>{
+					cb((err||err2), server, backendServer);
+				});
+			});
+		});
+	});
+	return api
+};
+
+module.exports = {testAPI, passthruAPIFromLookup, rqst, hasConsistentObjectOfType, port, dir};

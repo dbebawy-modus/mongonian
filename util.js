@@ -9,8 +9,8 @@ const access = require('object-accessor');
 const handleListPage = (ob, pageNumber, req, res, urlPath, instances, options = {})=>{
 	let config = ob.config();
 	let errorConfig = ob.errorSpec();
-	handleList(ob, pageNumber, urlPath, instances, options, req, (err, returnValue, set, len, write)=>{
-		let result = write(returnValue, set, len);
+	handleList(ob, pageNumber, urlPath, instances, options, req, (err, returnValue, set, len, write, meta)=>{
+		let result = write(returnValue, set, len, meta);
 		ob.returnContent(res, result, errorConfig, config);
 	});
 };
@@ -226,20 +226,23 @@ const handleList = (ob, pageNumber, urlPath, instances, options, req, callback)=
 	let pageSize = (options.page && options.page.size) || config.defaultSize || 30;
 	let resultSpec = ob.resultSpec();
 	let cleaned = ob.cleanedSchema(resultSpec.returnSpec);
-	let pageVars = ()=>{
-		let pageOpts = options.page || {};
-		let size = pageOpts.size || config.defaultSize || 30;
-		let pageFrom0 = pageNumber - 1;
+	let pageVars = (meta)=>{
+		let metaPage = (meta && meta.page) || {}; 
+		let pageOpts =  options.page || {};
+		let size = metaPage.size || pageOpts.size || config.defaultSize || 30;
+		let finalPageNumber = metaPage.number || pageNumber;
+		let total = metaPage.total || seeds.length;
+		let pageFrom0 = finalPageNumber - 1;
 		let offset = pageFrom0 * size;
-		let count = Math.ceil(seeds.length/size);
-		return {size, pageFrom0, offset, count};
+		let count = Math.ceil(total/size);
+		return {size, pageFrom0, offset, count, number: finalPageNumber, total};
 	};
-	let writeResults = (results, set, size)=>{
+	let writeResults = (results, set, size, meta)=>{
+		let opts = pageVars(meta);
 		if(config.total){
-			access.set(results, config.total, size || seeds.length);
+			access.set(results, config.total, opts.total);
 		}
 		if(config.page){
-			let opts = pageVars();
 			if(config.page.size){
 				access.set(results, config.page.size, opts.size);
 			}
@@ -253,7 +256,7 @@ const handleList = (ob, pageNumber, urlPath, instances, options, req, callback)=
 				access.set(results, config.page.previous, urlPath+'/list/'+(pageNumber-1));
 			}
 			if(config.page.number){
-				access.set(results, config.page.number, pageNumber);
+				access.set(results, config.page.number, opts.number);
 			}
 		}
 		access.set(results, resultSpec.resultSetLocation, set);
@@ -261,7 +264,7 @@ const handleList = (ob, pageNumber, urlPath, instances, options, req, callback)=
 	}
 	if(ob.api.doNotSeedLists || options.doNotSeedLists){
 		let items = [];
-		lookup(ob.options.name, options.query || {}, req, (err, res)=>{
+		lookup(ob.options.name, options.query || {}, req, (err, res, meta)=>{
 			if(
 				config.foreignKey &&
 				(options.internal || options.link || options.external)
@@ -269,11 +272,11 @@ const handleList = (ob, pageNumber, urlPath, instances, options, req, callback)=
 				//tpe is like: ['userTransaction:user:transaction']
 				let tpe = getExpansions(options, config);
 				populate.mutateForest(ob.options.name, res, tpe, req, (err, forest)=>{
-					callback(null, {}, forest, null, writeResults);
+					callback(null, {}, forest, null, writeResults, meta);
 				});
 			}else{
 				items = items.concat(res)
-				callback(null, {}, items, null, writeResults);
+				callback(null, {}, items, null, writeResults, meta);
 			}
 		}, {config, options});
 		return;
@@ -411,12 +414,12 @@ const handleList = (ob, pageNumber, urlPath, instances, options, req, callback)=
 							}
 							set.push(item);
 						});
-						callback(null, returnValue, set, null, writeResults)
+						callback(null, returnValue, set, null, writeResults, {})
 						//writeResults(returnValue, set);
 						//returnContent(res, returnValue, errorConfig, config);
 					});
 				}else{
-					callback(null, returnValue, set, len, writeResults)
+					callback(null, returnValue, set, len, writeResults, {})
 					//writeResults(returnValue, set, len);
 					//returnContent(res, returnValue, errorConfig, config);
 				}

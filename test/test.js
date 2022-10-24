@@ -9,7 +9,7 @@ const request = require('postman-request');
 const ks = require('kitchen-sync');
 const Mongoish = require('../mongonian');
 const util = require('../test-util.js');
-const {testAPI, rqst, hasConsistentObjectOfType} = util;
+const {testAPI, rqst, hasConsistentObjectOfType, passthruAPIFromLookup} = util;
 util.dir = __dirname;
 util.request = request;
 
@@ -644,84 +644,121 @@ describe('perigress', ()=>{
 		
 		it('runs a custom lookup as a passthrough', function(done){
 			this.timeout(10000);
-			const app = express();
-			app.use(bodyParser.json({strict: false}));
-			// A replication of the internal lookup;
-			let lookupCounter = 0;
-			let api;
+            let lookupCounter = 0;
             let contexts = [];
-			const lookup = (type, context, req, cb)=>{
-				try{
-					let endpoint = api.getInstance(type);
-					let localIdentifier = endpoint.options.identifier||'id';
-					let outboundContext = context;
-					if(Array.isArray(context)){
-						let ctx = {};
-						ctx[localIdentifier] = {$in: context};
-						outboundContext = ctx;
-					}
+            let api = passthruAPIFromLookup(8081, __dirname, 'audit-fk-api', (type, context, req, cb)=>{
+                try{
+                    let endpoint = api.getInstance(type);
+                    let localIdentifier = endpoint.options.identifier||'id';
+                    let outboundContext = context;
+                    if(Array.isArray(context)){
+                        let ctx = {};
+                        ctx[localIdentifier] = {$in: context};
+                        outboundContext = ctx;
+                    }
                     contexts.push(outboundContext);
-					request({ 
-						url: `http://localhost:8082/v1/${type}/list`, 
-						method, 
-						json: { 
-							query: outboundContext,
+                    request({ 
+                        url: `http://localhost:8082/v1/${type}/list`, 
+                        method, 
+                        json: { 
+                            query: outboundContext,
                             generate: req.body.generate, // passthru
                             saveGenerated: req.body.saveGenerated // passthru
-						} 
-					}, (err, res, results)=>{
-						cb(err, results.results);
-					});
-				}catch(ex){ console.log(ex); should.not.exist(ex) }
-			};
-			api = new Perigress.DummyAPI({
-				subpath: 'audit-fk-api',
-				dir: __dirname
-			}, new Mongoish(), { lookup });
-            api.doNotSeedLists = true;
-			
-			const backendApp = express();
-			backendApp.use(bodyParser.json({strict: false}));
-			const backendApi = new Perigress.DummyAPI({
-				subpath : 'audit-fk-api',
-				dir: __dirname
-			}, new Mongoish());
-			api.attach(app, ()=>{
-				backendApi.attach(backendApp, ()=>{
-					const server = app.listen(8081, async (err)=>{
-						const backendServer = backendApp.listen(8082, async (err)=>{
-							let listRequest = await rqst({ 
-								url: `http://localhost:8081/v1/user/list`, 
-								method, json: { query: {},
-									link: [
-                                        'user+transaction',
-                                    ],
-                                    generate: 1,
-                                    saveGenerated: true
-								}
-							});
-                            try{
-                                contexts.length.should.equal(3);
-                                should.exist(contexts[1].user_id);
-                                Array.isArray(contexts[1].user_id['$in']).should.equal(true);
-                                contexts[1].user_id['$in'].length.should.equal(
-                                    listRequest.body.results.length
-                                );
-                                should.exist(contexts[2].id);
-                                Array.isArray(contexts[2].id['$in']).should.equal(true);
-                                server.close(()=>{
-								    backendServer.close(()=>{
-									    done();
-								    });
-							    });
-                            }catch(ex){
-                                should.not.exist(ex);
-                            }
-						});
-					});
-				});
-			});
+                        } 
+                    }, (err, res, results)=>{
+                        cb(err, results.results);
+                    });
+                }catch(ex){ console.log(ex); should.not.exist(ex) }
+            }, async (err, server, backendServer)=>{
+                let listRequest = await rqst({ 
+                    url: `http://localhost:8081/v1/user/list`, 
+                    method, json: { query: {},
+                        link: [
+                            'user+transaction',
+                        ],
+                        generate: 1,
+                        saveGenerated: true
+                    }
+                });
+                try{
+                    contexts.length.should.equal(3);
+                    should.exist(contexts[1].user_id);
+                    Array.isArray(contexts[1].user_id['$in']).should.equal(true);
+                    contexts[1].user_id['$in'].length.should.equal(
+                        listRequest.body.results.length
+                    );
+                    should.exist(contexts[2].id);
+                    Array.isArray(contexts[2].id['$in']).should.equal(true);
+                    server.close(()=>{
+                        backendServer.close(()=>{
+                            done();
+                        });
+                    });
+                }catch(ex){
+                    should.not.exist(ex);
+                }
+            });
 		});
+        
+        it('can push custom page data from a lookup configured as a passthru', function(done){
+            this.timeout(10000);
+            let lookupCounter = 0;
+            let contexts = [];
+            let api = passthruAPIFromLookup(8081, __dirname, 'audit-fk-api', (type, context, req, cb)=>{
+                try{
+                    let endpoint = api.getInstance(type);
+                    let localIdentifier = endpoint.options.identifier||'id';
+                    let outboundContext = context;
+                    if(Array.isArray(context)){
+                        let ctx = {};
+                        ctx[localIdentifier] = {$in: context};
+                        outboundContext = ctx;
+                    }
+                    contexts.push(outboundContext);
+                    request({ 
+                        url: `http://localhost:8082/v1/${type}/list`, 
+                        method, 
+                        json: { 
+                            query: outboundContext,
+                            generate: req.body.generate, // passthru
+                            saveGenerated: req.body.saveGenerated // passthru
+                        } 
+                    }, (err, res, results)=>{
+                        cb(err, results.results, {page:{total: 230}});
+                    });
+                }catch(ex){ console.log(ex); should.not.exist(ex) }
+            }, async (err, server, backendServer)=>{
+                let listRequest = await rqst({ 
+                    url: `http://localhost:8081/v1/user/list`, 
+                    method, json: { query: {},
+                        link: [
+                            'user+transaction',
+                        ],
+                        generate: 1,
+                        saveGenerated: true
+                    }
+                });
+                try{
+                    should.exist(listRequest.body.total);
+                    listRequest.body.total.should.equal(230);
+                    contexts.length.should.equal(3);
+                    should.exist(contexts[1].user_id);
+                    Array.isArray(contexts[1].user_id['$in']).should.equal(true);
+                    contexts[1].user_id['$in'].length.should.equal(
+                        listRequest.body.results.length
+                    );
+                    should.exist(contexts[2].id);
+                    Array.isArray(contexts[2].id['$in']).should.equal(true);
+                    server.close(()=>{
+                        backendServer.close(()=>{
+                            done();
+                        });
+                    });
+                }catch(ex){
+                    should.not.exist(ex);
+                }
+            });
+        });
 	});
 
 });
