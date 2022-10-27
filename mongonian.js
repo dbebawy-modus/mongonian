@@ -78,29 +78,36 @@ const getUrls = (config, pathOptions, endpoint)=>{
 		),
 		listSchema : template(
 			(
-				(config.paths && config.paths.display) ||
+				(config.paths && config.paths.listSchema) ||
 				'${basePath}/list-schema.json'
 			),
 			pathOptions
 		),
 		itemSchema : template(
 			(
-				(config.paths && config.paths.display) ||
+				(config.paths && config.paths.itemSchema) ||
 				'${basePath}/display-schema.json'
 			),
 			pathOptions
 		),
 		createSchema : template(
 			(
-				(config.paths && config.paths.display) ||
+				(config.paths && config.paths.createSchema) ||
 				'${basePath}/create-schema.json'
 			),
 			pathOptions
 		),
 		editSchema : template(
 			(
-				(config.paths && config.paths.display) ||
+				(config.paths && config.paths.editSchema) ||
 				'${basePath}/edit-schema.json'
+			),
+			pathOptions
+		),
+		delete : template(
+			(
+				(config.paths && config.paths.delete) ||
+				'${basePath}/:${primaryKey}/delete'
 			),
 			pathOptions
 		)
@@ -285,9 +292,13 @@ const Mongonian = OutputFormat.extend({
 		
 		if(!endpoint.create) endpoint.create = function(options, cb){
 			let callback = ks(cb);
+			let config = endpoint.config();
+			let primaryKey = config.primaryKey || 'id';
+			let item = options.body;
+			if(!item[primaryKey]) item[primaryKey] = Math.floor(Math.random()* 1000000000);
 			if(validate(options.body, endpoint.originalSchema)){
-				endpoint.instances[options.body[primaryKey]] = options.body;
-				callback(null, options.body);
+				endpoint.instances[item[primaryKey]] = item;
+				callback(null, item);
 			}else{
 				callback(new Error("the provided data was not valid"));
 			}
@@ -315,7 +326,8 @@ const Mongonian = OutputFormat.extend({
 					});
 					//item is now the set of values to save
 					if(validate(item, endpoint.originalSchema)){
-						endpoint.instances[options[primaryKey]] = item;
+						endpoint.instances[options.body[primaryKey]] = item;
+						
 						callback(null, item);
 					}else{
 						//fail
@@ -449,6 +461,18 @@ const Mongonian = OutputFormat.extend({
 			handleListPage(endpoint, page, req, res, urlPath, endpoint.instances, options);
 		});
 		
+		expressInstance[
+			endpoint.endpointOptions.method.toLowerCase()
+		](urls.delete, (req, res)=>{
+			endpoint.delete(req, (err)=>{
+				if(err){
+					res.send('{"error":true, "message":"save failed"}');
+				}else{
+					endpoint.returnContent(res, {success:true}, errorConfig, config);
+				}
+			});
+		});
+		
 		if(this.options.search){
 			expressInstance[
 				endpoint.endpointOptions.method.toLowerCase()
@@ -491,20 +515,30 @@ const Mongonian = OutputFormat.extend({
 		expressInstance[
 			endpoint.endpointOptions.method.toLowerCase()
 		](urls.create, (req, res)=>{
-			if(validate(req.body, endpoint.originalSchema)){
-				let item = req.body;
-				if(!item[primaryKey]) item[primaryKey] = Math.floor(Math.random()* 1000000000)
-				endpoint.instances[item[primaryKey]] = item;
+			endpoint.create(req, (err, item)=>{
+				if(err){
+					res.send('{"error":true, "message":"the provided data could not be saved"}');
+				}
 				endpoint.returnContent(res, {success: true, result: item}, errorConfig, config);
-			}else{
-				res.send('{"error":true, "message":"the provided data was not valid"}')
-			}
+			});
 		});
 		
 		expressInstance[
 			endpoint.endpointOptions.method.toLowerCase()
 		](urls.edit, (req, res)=>{
-			endpoint.getInstance(req.params[primaryKey], (err, item)=>{
+			if(req.body && typeof req.body === 'object'){
+				endpoint.update(req, (err)=>{
+					if(err){
+						res.send('{"error":true, "message":"save failed"}');
+					}else{
+						endpoint.returnContent(res, {success:true}, errorConfig, config);
+					}
+				});
+			}else{
+				//fail
+				res.send('{"error":true, "message":"no provided data to save"}');
+			}
+			/*endpoint.getInstance(req.params[primaryKey], (err, item)=>{
 				if(req.body && typeof req.body === 'object'){
 					Object.keys(req.body).forEach((key)=>{
 						item[key] = req.body[key];
@@ -521,7 +555,7 @@ const Mongonian = OutputFormat.extend({
 					//fail
 					console.log('*', req.body, req)
 				}
-			})
+			})*/
 		});
 		
 		expressInstance[
