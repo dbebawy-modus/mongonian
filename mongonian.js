@@ -466,7 +466,7 @@ const Mongonian = OutputFormat.extend({
 		](urls.delete, (req, res)=>{
 			endpoint.delete(req, (err)=>{
 				if(err){
-					res.send('{"error":true, "message":"save failed"}');
+					res.send('{"error":true, "message":"delete failed"}');
 				}else{
 					endpoint.returnContent(res, {success:true}, errorConfig, config);
 				}
@@ -517,7 +517,10 @@ const Mongonian = OutputFormat.extend({
 		](urls.create, (req, res)=>{
 			endpoint.create(req, (err, item)=>{
 				if(err){
-					res.send('{"error":true, "message":"the provided data could not be saved"}');
+					res.send(`{"error":true, "message":"${
+						err.message ||
+						"the provided data could not be saved"
+					}"}`);
 				}
 				endpoint.returnContent(res, {success: true, result: item}, errorConfig, config);
 			});
@@ -529,7 +532,10 @@ const Mongonian = OutputFormat.extend({
 			if(req.body && typeof req.body === 'object'){
 				endpoint.update(req, (err)=>{
 					if(err){
-						res.send('{"error":true, "message":"save failed"}');
+						res.send(`{"error":true, "message":"${
+							err.message ||
+							"the provided data could not be saved"
+						}"}`);
 					}else{
 						endpoint.returnContent(res, {success:true}, errorConfig, config);
 					}

@@ -138,7 +138,12 @@ const makeLookup = (ob, primaryKey, identifier)=>{
 					return lookup(type, criteria[identifier]['$in'], req, cb, {config, options})
 				}
 			}else{
-				/*ob.api.internal(type, 'list', {}, (err, results)=>{
+				/* ob.api.internal(type, 'list', {body:{
+					query: criteria,
+					includeSaved: req.body.includeSaved,
+					generate: req.body.generate,
+					saveGenerated: req.body.saveGenerated,
+				}}, (err, results)=>{
 					let endpoint = res;
 					let allResults = results.concat(res.instances);
 					let matchingResults = allResults.filter(ob.api.sift(criteria));
@@ -154,7 +159,7 @@ const makeLookup = (ob, primaryKey, identifier)=>{
 						items[0] = generated;
 						cb && cb(null, items);
 					});
-				});*/
+				}); //*/
 			}
 		}
 	}
@@ -414,12 +419,14 @@ const handleList = (ob, pageNumber, urlPath, instances, options, req, callback)=
 							}
 							set.push(item);
 						});
-						callback(null, returnValue, set, null, writeResults, {})
+						const fullSetTotal = seeds.length + options.generated;
+						callback(null, returnValue, set, null, writeResults, {total: fullSetTotal});
 						//writeResults(returnValue, set);
 						//returnContent(res, returnValue, errorConfig, config);
 					});
 				}else{
-					callback(null, returnValue, set, len, writeResults, {})
+					const fullSetTotal = seeds.length;
+					callback(null, returnValue, set, len, writeResults, {total: fullSetTotal});
 					//writeResults(returnValue, set, len);
 					//returnContent(res, returnValue, errorConfig, config);
 				}

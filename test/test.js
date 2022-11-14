@@ -481,6 +481,39 @@ describe('perigress', ()=>{
                 should.not.exist(ex);
             }
         });
+        
+        it('saves changes + does not return the generated copy', (done)=>{
+            try{
+                const api = new Perigress.DummyAPI({
+                    subpath : 'wkr-api',
+                    dir: __dirname
+                }, new Mongoish());
+                api.attach(null, ()=>{
+                    api.internal('user', 'list', {}, (err, users)=>{
+                        let item = users[0];
+                        item.firstName = 'Bob';
+                        api.internal('user', 'update', { 
+                            id : item.id, 
+                            body: item 
+                        }, (err, savedUser)=>{
+                            should.exist(savedUser);
+                            api.internal('user', 'read', { id : item.id}, (err, user)=>{
+                                user.firstName.should.equal('Bob');
+                                api.internal('user', 'list', { query:{id : item.id}}, (err, userLists)=>{
+									should.exist(userLists);
+									Array.isArray(userLists).should.equal(true);
+									userLists.length.should.equal(1);
+                                    done();
+                                });
+                            });
+                        });
+                    });
+                });
+            }catch(ex){
+                console.log(ex)
+                should.not.exist(ex);
+            }
+        });
 		
 	});
 	// Disable the following block for vanilla mocha compatibility
@@ -587,6 +620,7 @@ describe('perigress', ()=>{
 			app.use(bodyParser.json({strict: false}));
 			// A replication of the internal lookup;
 			let lookupCounter = 0;
+            let deleteCounter = 0;
 			const lookup = (type, context, req, cb)=>{
 				let endpoint = api.getInstance(type);
 				let id = endpoint.options.identifier || 'id';
@@ -628,6 +662,11 @@ describe('perigress', ()=>{
 				dir: __dirname
 			}, new Mongoish(), { lookup });
 			api.attach(app, ()=>{
+                let endpoint = api.getInstance('user');
+                endpoint.delete = (o, cb)=>{
+                    deleteCounter++;
+                    cb()
+                }
 				const server = app.listen(8081, async (err)=>{
 					let listRequest = await rqst({ 
 						url: `http://localhost:8081/v1/user/list`, 
@@ -635,6 +674,12 @@ describe('perigress', ()=>{
 							link: ['user+transaction']
 						} 
 					});
+                    let deleteRequest = await rqst({ 
+                        url: `http://localhost:8081/v1/user/foo/delete`, 
+                        method, json: {} 
+                    });
+                    lookupCounter.should.be.above(0);
+                    deleteCounter.should.be.above(0);
 					server.close(()=>{
 						done();
 					});
@@ -749,11 +794,13 @@ describe('perigress', ()=>{
                     );
                     should.exist(contexts[2].id);
                     Array.isArray(contexts[2].id['$in']).should.equal(true);
-                    server.close(()=>{
+                    //*
+					server.close(()=>{
                         backendServer.close(()=>{
                             done();
                         });
-                    });
+                    }); // */
+                    //done();
                 }catch(ex){
                     should.not.exist(ex);
                 }
