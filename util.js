@@ -361,6 +361,7 @@ const handleList = (ob, pageNumber, urlPath, instances, options, req, callback)=
 			let opts = pageVars();
 			fillList(seeds, options, (err, filled)=>{
 				let set = filled.filter(ob.api.sift(options.query));
+				let filteredSetLength = set.length;
 				let len = set.length;
 				set = set.slice(opts.offset, opts.offset+opts.size);
 				let returnOptionValue = null;
@@ -419,7 +420,7 @@ const handleList = (ob, pageNumber, urlPath, instances, options, req, callback)=
 							}
 							set.push(item);
 						});
-						const fullSetTotal = seeds.length + options.generated;
+						const fullSetTotal = filteredSetLength + options.generated;
 						callback(null, returnValue, set, null, writeResults, {total: fullSetTotal});
 						//writeResults(returnValue, set);
 						//returnContent(res, returnValue, errorConfig, config);
