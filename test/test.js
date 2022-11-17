@@ -9,6 +9,7 @@ const request = require('postman-request');
 const ks = require('kitchen-sync');
 const Mongoish = require('../mongonian');
 const util = require('../test-util.js');
+const { makeLookup } = require('../util');
 const {testAPI, rqst, hasConsistentObjectOfType, passthruAPIFromLookup} = util;
 util.dir = __dirname;
 util.request = request;
@@ -540,6 +541,51 @@ describe('perigress', ()=>{
 				}, new Mongoish({
 					aggregation: true
 				}));
+				api.attach(app, ()=>{
+					const server = app.listen(port, async (err)=>{
+						let listRequest = await rqst({ 
+							url: `http://localhost:${port}/v1/transaction/aggregation`, 
+							method, json: { 
+								query: {},
+								group: { 
+									_id: "card_id",
+									sumTotal: {$sum: "$total"},
+									countTotal: {$count: "$total"} 
+								}
+							} 
+						});
+						listRequest.body.result.length.should.equal(20);
+						server.close(()=>{
+							done();
+						});
+					});
+				});
+			}catch(ex){
+				console.log(ex)
+				should.not.exist(ex);
+			}
+		});
+
+		it('aggregation should forward request to lookup hook', (done)=>{
+			try{
+				const app = express();
+				app.use(bodyParser.json({strict: false}));
+				const api = new Perigress.DummyAPI({
+					subpath : 'audit-fk-api',
+					dir: __dirname
+				}, new Mongoish({
+					aggregation: true
+				}));
+				api.actions.lookup = (type, context, req, cb, config) => {
+					should.exist(req);
+					let primaryKey = config.primaryKey || 'id';
+					let identifier = 'id';
+					let endpoint = api.endpoints.find((e)=>{
+						return e.options.name === type
+					});
+					let lookup = makeLookup(endpoint, primaryKey, identifier);
+					return lookup(type, context, req, cb, config);
+				}
 				api.attach(app, ()=>{
 					const server = app.listen(port, async (err)=>{
 						let listRequest = await rqst({ 

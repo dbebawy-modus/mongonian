@@ -174,6 +174,8 @@ const Mongonian = OutputFormat.extend({
 		}
 		if(!endpoint.list) endpoint.list = function(options, cb){
 			let callback = ks(cb);
+			const requestObject = options.req || {};
+			delete options.req;
 			try{
 				handleList(
 					endpoint, 
@@ -181,7 +183,7 @@ const Mongonian = OutputFormat.extend({
 					`js://${endpoint.options.name}/`, 
 					endpoint.instances, 
 					options, 
-					{},
+					requestObject,
 					(err, returnValue, set, len, write)=>{
 						callback(null, set);
 					}
@@ -253,7 +255,8 @@ const Mongonian = OutputFormat.extend({
 			});
 			let result = {};
 			endpoint.api.internal(endpoint.options.name, 'list', {
-				query: options.$match
+				query: options.$match,
+				req: options.req,
 			}, (err, results)=>{
 				let aggregates = {};
 				results.forEach((item)=>{
@@ -492,7 +495,8 @@ const Mongonian = OutputFormat.extend({
 				if(!(options['$group'] || options.group)) throw new Error('nothing to group');
 				endpoint.aggregation({
 					$group: (options['$group'] || options.group),
-					$match: (options['$match'] || options.query)
+					$match: (options['$match'] || options.query),
+					req: req
 				}, (err, result)=>{
 					endpoint.returnContent(res, {success: true, result: result}, errorConfig, config);
 				});
