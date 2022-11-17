@@ -116,7 +116,11 @@ const makeLookup = (ob, primaryKey, identifier)=>{
 						cb && cb(null, instancesMeetingCriteria);
 					}else{
 						let id;
-						if(criteria[keys[0]]['$in'] && criteria[keys[0]]['$in'].length){
+						if(
+							criteria[keys[0]] && 
+							criteria[keys[0]]['$in'] && 
+							criteria[keys[0]]['$in'].length
+						){
 							id = criteria[keys[0]]['$in'].shift();
 						}else{
 							id = res.nextId(res)
