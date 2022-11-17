@@ -1,6 +1,6 @@
 {
   "name": "@perigress/mongonian",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "main": "mongonian.js",
   "description": "Mongo like output format for Perigress",
   "keywords": [
