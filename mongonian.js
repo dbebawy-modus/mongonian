@@ -214,19 +214,35 @@ const Mongonian = OutputFormat.extend({
 		}
 		
 		if(!endpoint.search) endpoint.search = function(options, cb){
-			let callback = ks(cb);
-			//implement
-			let searchToRegexOptions = JSON.parse(JSON.stringify(options));
-			if(!searchToRegexOptions.wildcard){
-				return endpoint.returnError(res, new Error("searching requires the wildcard property"), errorConfig, config);
-			}else{
-				let regex = new RegExp(searchToRegexOptions.wildcard.query.replace(/\*/g, ".*"));
-				searchToRegexOptions.query[searchToRegexOptions.wildcard.path] = {$regex: regex};
-			}
-			endpoint.list(searchToRegexOptions, (err, results)=>{
-				callback(err, results);
-			});
-			return callback.return;
+            try{
+			    let searchToRegexOptions = JSON.parse(JSON.stringify(options));
+			    let callback = ks(cb);
+			    //implement
+			    let path = searchToRegexOptions.wildcard.path;
+			    if(!Array.isArray(path)){
+				    path = [path];
+			    }
+                let config = endpoint.config();
+                let primaryKey = config.primaryKey || 'id';
+			    if(!searchToRegexOptions.wildcard){
+				    return callback(new Error("searching requires the wildcard property"));
+			    }
+			    let regex = new RegExp(searchToRegexOptions.wildcard.query.replace(/\*/g, ".*"));
+			    let searchCriteria = options.query;
+                searchCriteria["$or"] = [];
+			    path.forEach((path)=>{
+                    let crit = {};
+                    crit[path] = {$regex: regex};
+				    searchCriteria["$or"].push(crit);
+			    });
+			    searchToRegexOptions.query = searchCriteria;
+			    endpoint.list(searchToRegexOptions, (err, results)=>{
+				    callback(err, results);
+			    });
+			    return callback.return;
+            }catch(ex){
+                callback(ex);
+            }
 		}
 		
 		const aggOps = {
@@ -317,6 +333,10 @@ const Mongonian = OutputFormat.extend({
 			});
 			return callback.return;
 		}
+        
+        if(!endpoint.createUrl) endpoint.createUrl = function(instance, options){
+            instance[options.method](options.url, options.handler);
+        }
 		
 		if(!endpoint.update) endpoint.update = function(options, cb){
 			let callback = ks(cb);
@@ -452,135 +472,141 @@ const Mongonian = OutputFormat.extend({
 			
 		let urls = getUrls(config, pathOptions, endpoint);
 		endpoint.basePath = urlPath
+        
+        endpoint.createUrl(expressInstance, {
+            url: urls.list,
+            method: endpoint.endpointOptions.method.toLowerCase(),
+            handler: (req, res)=>{
+                let options = typeof req.body === 'string'?req.params:req.body;
+                let page = (config.page && config.page.number)?
+                    parseInt(access.get(options, config.page.number)||'1'):
+                    1;
+                handleListPage(endpoint, page, req, res, urlPath, endpoint.instances, options);
+            }
+        });
+        
+        endpoint.createUrl(expressInstance, {
+            url: urls.listPage,
+            method: endpoint.endpointOptions.method.toLowerCase(),
+            handler: (req, res)=>{
+                let options = typeof req.body === 'string'?req.params:req.body;
+                handleListPage(endpoint, parseInt(req.params.pageNumber), req, res, urlPath, endpoint.instances, options);
+            }
+        });
+        
+        endpoint.createUrl(expressInstance, {
+            url: urls.delete,
+            method: endpoint.endpointOptions.method.toLowerCase(),
+            handler: (req, res)=>{
+                endpoint.delete(req, (err)=>{
+                    if(err){
+                        res.send('{"error":true, "message":"delete failed"}');
+                    }else{
+                        endpoint.returnContent(res, {success:true}, errorConfig, config);
+                    }
+                });
+            }
+        });
+        
+        if(this.options.search){
+            endpoint.createUrl(expressInstance, {
+                url: urls.search,
+                method: endpoint.endpointOptions.method.toLowerCase(),
+                handler: (req, res)=>{
+                    let options = typeof req.body === 'string'?req.params:req.body;
+                    endpoint.search(options, (err, results)=>{
+                        endpoint.returnContent(res, {success: true, result: results}, errorConfig, config);
+                    });
+                }
+            });
+        }
+        
+        if(this.options.aggregation){
+            endpoint.createUrl(expressInstance, {
+                url: urls.aggregation,
+                method: endpoint.endpointOptions.method.toLowerCase(),
+                handler: (req, res)=>{
+                    let options = typeof req.body === 'string'?req.params:req.body;
+                    if(!(options['$group'] || options.group)) throw new Error('nothing to group');
+                    endpoint.aggregation({
+                        $group: (options['$group'] || options.group),
+                        $match: (options['$match'] || options.query),
+                        req: req
+                    }, (err, result)=>{
+                        endpoint.returnContent(res, {success: true, result: result}, errorConfig, config);
+                    });
+                }
+            });
+        }
+        
+        endpoint.createUrl(expressInstance, {
+            url: urls.save,
+            method: endpoint.endpointOptions.method.toLowerCase(),
+            handler: (req, res)=>{
+                let options = typeof req.body === 'string'?req.params:req.body;
+                handleBatch(endpoint, 1, req, res, urlPath, endpoint.instances, options, true);
+            }
+        });
+        
+        endpoint.createUrl(expressInstance, {
+            url: urls.create,
+            method: endpoint.endpointOptions.method.toLowerCase(),
+            handler: (req, res)=>{
+                endpoint.create(req, (err, item)=>{
+                    if(err){
+                        res.send(`{"error":true, "message":"${
+                            err.message ||
+                            "the provided data could not be saved"
+                        }"}`);
+                    }
+                    endpoint.returnContent(res, {success: true, result: item}, errorConfig, config);
+                });
+            }
+        });
+        
+        endpoint.createUrl(expressInstance, {
+            url: urls.edit,
+            method: endpoint.endpointOptions.method.toLowerCase(),
+            handler: (req, res)=>{
+                if(req.body && typeof req.body === 'object'){
+                    endpoint.update(req, (err)=>{
+                        if(err){
+                            res.send(`{"error":true, "message":"${
+                                err.message ||
+                                "the provided data could not be saved"
+                            }"}`);
+                        }else{
+                            endpoint.returnContent(res, {success:true}, errorConfig, config);
+                        }
+                    });
+                }else{
+                    //fail
+                    res.send('{"error":true, "message":"no provided data to save"}');
+                }
+            }
+        });
+        
+        endpoint.createUrl(expressInstance, {
+            url: urls.display,
+            method: endpoint.endpointOptions.method.toLowerCase(),
+            handler: (req, res)=>{
+                let config = endpoint.config();
+                let primaryKey = config.primaryKey || 'id';
+                let options = {};
+                options[primaryKey] = req.params[primaryKey];
+                endpoint.read(options, (err, results)=>{
+                    if(err){
+                        res.send(`{"error":true, "message":"${
+                            err.message ||
+                            "the provided data could not be saved"
+                        }"}`);
+                    }else{
+                        res.send(JSON.stringify(results, null, '    '))
+                    }
+                });
+            }
+        });
 		
-			
-		expressInstance[
-			endpoint.endpointOptions.method.toLowerCase()
-		](urls.list, (req, res)=>{
-			let options = typeof req.body === 'string'?req.params:req.body;
-			let page = (config.page && config.page.number)?
-				parseInt(access.get(options, config.page.number)||'1'):
-				1;
-			handleListPage(endpoint, page, req, res, urlPath, endpoint.instances, options);
-		});
-		
-		expressInstance[
-			endpoint.endpointOptions.method.toLowerCase()
-		](urls.delete, (req, res)=>{
-			endpoint.delete(req, (err)=>{
-				if(err){
-					res.send('{"error":true, "message":"delete failed"}');
-				}else{
-					endpoint.returnContent(res, {success:true}, errorConfig, config);
-				}
-			});
-		});
-		
-		if(this.options.search){
-			expressInstance[
-				endpoint.endpointOptions.method.toLowerCase()
-			](urls.search, (req, res)=>{
-				let options = typeof req.body === 'string'?req.params:req.body;
-				endpoint.search(options, (err, results)=>{
-					endpoint.returnContent(res, {success: true, result: results}, errorConfig, config);
-				});
-			});
-		}
-		
-		if(this.options.aggregation){
-			expressInstance[
-				endpoint.endpointOptions.method.toLowerCase()
-			](urls.aggregation, (req, res)=>{
-				let options = typeof req.body === 'string'?req.params:req.body;
-				if(!(options['$group'] || options.group)) throw new Error('nothing to group');
-				endpoint.aggregation({
-					$group: (options['$group'] || options.group),
-					$match: (options['$match'] || options.query),
-					req: req
-				}, (err, result)=>{
-					endpoint.returnContent(res, {success: true, result: result}, errorConfig, config);
-				});
-			});
-		}
-		expressInstance[
-			endpoint.endpointOptions.method.toLowerCase()
-		](urls.save, (req, res)=>{
-			let options = typeof req.body === 'string'?req.params:req.body;
-			handleBatch(endpoint, 1, req, res, urlPath, endpoint.instances, options, true);
-		});
-		
-		expressInstance[
-			endpoint.endpointOptions.method.toLowerCase()
-		](urls.listPage, (req, res)=>{
-			let options = typeof req.body === 'string'?req.params:req.body;
-			handleListPage(endpoint, parseInt(req.params.pageNumber), req, res, urlPath, endpoint.instances, options);
-		});
-		
-		expressInstance[
-			endpoint.endpointOptions.method.toLowerCase()
-		](urls.create, (req, res)=>{
-			endpoint.create(req, (err, item)=>{
-				if(err){
-					res.send(`{"error":true, "message":"${
-						err.message ||
-						"the provided data could not be saved"
-					}"}`);
-				}
-				endpoint.returnContent(res, {success: true, result: item}, errorConfig, config);
-			});
-		});
-		
-		expressInstance[
-			endpoint.endpointOptions.method.toLowerCase()
-		](urls.edit, (req, res)=>{
-			if(req.body && typeof req.body === 'object'){
-				endpoint.update(req, (err)=>{
-					if(err){
-						res.send(`{"error":true, "message":"${
-							err.message ||
-							"the provided data could not be saved"
-						}"}`);
-					}else{
-						endpoint.returnContent(res, {success:true}, errorConfig, config);
-					}
-				});
-			}else{
-				//fail
-				res.send('{"error":true, "message":"no provided data to save"}');
-			}
-			/*endpoint.getInstance(req.params[primaryKey], (err, item)=>{
-				if(req.body && typeof req.body === 'object'){
-					Object.keys(req.body).forEach((key)=>{
-						item[key] = req.body[key];
-					});
-					//item is now the set of values to save
-					if(validate(item, endpoint.originalSchema)){
-						endpoint.instances[req.params[primaryKey]] = item;
-						endpoint.returnContent(res, {success:true}, errorConfig, config);
-					}else{
-						//fail
-						console.log('**')
-					}
-				}else{
-					//fail
-					console.log('*', req.body, req)
-				}
-			})*/
-		});
-		
-		expressInstance[
-			endpoint.endpointOptions.method.toLowerCase()
-		](urls.display, (req, res)=>{
-			let config = endpoint.config();
-			let primaryKey = config.primaryKey || 'id';
-			if(endpoint.instances[req.params[primaryKey]]){
-				res.send(JSON.stringify(endpoint.instances[req.params[primaryKey]], null, '    '))
-			}else{
-				endpoint.generate(req.params[primaryKey], (err, generated)=>{
-					res.send(JSON.stringify(generated, null, '    '))
-				});
-			}
-		});
 	},
 	attachSpec : function(){
 		

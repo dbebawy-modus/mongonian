@@ -627,9 +627,8 @@ describe('perigress', ()=>{
 							url: `http://localhost:${port}/v1/transaction/search`, 
 							method, json: { 
 								query: {
-                                    total: {$eq:10.52}
+                                    total: {$eq:32.29177}
                                 },
-                                generate: 1,
                                 wildcard: {
                                     query: "CHA*",
                                     path: "network"
