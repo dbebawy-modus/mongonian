@@ -8,7 +8,7 @@ const validate = require('jsonschema').validate;
 const jsonSchemaFaker = require('json-schema-faker');
 const ks = require('kitchen-sync');
 const {
-	stringsToStructs, 
+    stringsToStructs, 
 	copyJSON, 
 	handleList, 
 	getExpansions, 
