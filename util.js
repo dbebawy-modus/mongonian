@@ -10,6 +10,13 @@ const handleListPage = (ob, pageNumber, req, res, urlPath, instances, options = 
     let config = ob.config();
     let errorConfig = ob.errorSpec();
     handleList(ob, pageNumber, urlPath, instances, options, req, (err, returnValue, set, len, write, meta)=>{
+        if(err){
+            res.send(JSON.stringify({
+                status: "error",
+                message: err.message
+            }));
+            return;
+        }
         let result = write(returnValue, set, len, meta);
         ob.returnContent(res, result, errorConfig, config);
     });
