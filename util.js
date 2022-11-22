@@ -274,6 +274,7 @@ const handleList = (ob, pageNumber, urlPath, instances, options, req, callback)=
     if(ob.api.doNotSeedLists || options.doNotSeedLists){
         let items = [];
         lookup(ob.options.name, options.query || {}, req, (err, res, meta)=>{
+            if(err) return callback(err);
             if(
                 config.foreignKey &&
                 (options.internal || options.link || options.external)
@@ -281,6 +282,7 @@ const handleList = (ob, pageNumber, urlPath, instances, options, req, callback)=
                 //tpe is like: ['userTransaction:user:transaction']
                 let tpe = getExpansions(options, config);
                 populate.mutateForest(ob.options.name, res, tpe, req, (err, forest)=>{
+                    if(err) return callback(err);
                     callback(null, {}, forest, null, writeResults, meta);
                 });
             }else{
