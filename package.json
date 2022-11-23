@@ -1,6 +1,6 @@
 {
     "name": "@perigress/mongonian",
-    "version": "0.1.19",
+    "version": "0.1.20",
     "main": "mongonian.js",
     "description": "Mongo like output format for Perigress",
     "keywords": [
@@ -29,7 +29,7 @@
         "test": "./test-runner.js test/audit-fk-api"
     },
     "dependencies": {
-        "@perigress/perigress": "0.2.2",
+        "@perigress/perigress": "0.2.3",
         "async-arrays": "^1.0.1",
         "es6-template-strings": "^2.0.1",
         "json-schema-faker": "^0.5.0-rcv.44",
