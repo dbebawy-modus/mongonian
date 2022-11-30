@@ -1,5 +1,4 @@
 const express = require('express');
-const bodyParser = require('body-parser');
 const Perigress = require('@perigress/perigress');
 const Mongoish = require('../mongonian');
 const path = require('path');
@@ -9,7 +8,7 @@ const port = 8080;
 const dir = __dirname;
 const testAPI = (p, cb)=>{
     const app = express();
-    app.use(bodyParser.json({strict: false}));
+    app.use(express.json({strict: false}));
     const api = new Perigress.API({
         subpath : p,
         dir: module.exports.dir
@@ -81,7 +80,7 @@ const passthruAPIFromLookup = (basePort, baseDir, apiType, lookup, cb)=>{
     const port = basePort;
     const backendPort = basePort + 1;
     
-    app.use(bodyParser.json({strict: false}));
+    app.use(express.json({strict: false}));
     // A replication of the internal lookup;
     let api;
     api = new Perigress.DummyAPI({
@@ -92,7 +91,7 @@ const passthruAPIFromLookup = (basePort, baseDir, apiType, lookup, cb)=>{
     //const lookup = lookupGenerator(api);
     
     const backendApp = express();
-    backendApp.use(bodyParser.json({strict: false}));
+    backendApp.use(express.json({strict: false}));
     const backendApi = new Perigress.DummyAPI({
         subpath : apiType,
         dir: baseDir

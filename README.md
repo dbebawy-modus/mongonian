@@ -8,7 +8,7 @@ Usage
 
 ```js
 	const app = express();
-	app.use(bodyParser.json({strict: false}));
+	app.use(express.json({strict: false}));
 	const api = new Perigress.API({
 		subpath : 'verifier-subdirectory',
 		dir: __dirname
