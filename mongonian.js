@@ -185,7 +185,7 @@ const Mongonian = OutputFormat.extend({
                     options, 
                     requestObject,
                     (err, returnValue, set, len, write)=>{
-                        callback(null, set);
+                        callback(err, set);
                     }
                 );
             }catch(ex){
@@ -204,7 +204,7 @@ const Mongonian = OutputFormat.extend({
                     this.instances, 
                     options, 
                     (err, returnValue, set, len, write)=>{
-                        callback(null, set);
+                        callback(err, set);
                     }
                 );
             }catch(ex){
@@ -301,7 +301,7 @@ const Mongonian = OutputFormat.extend({
                     aggregates[idHash].total++;
                 });
                 setTimeout(()=>{
-                    callback(null, Object.keys(aggregates).map((key)=>{
+                    callback(err, Object.keys(aggregates).map((key)=>{
                         return aggregates[key].values;
                     }));
                 })
@@ -350,8 +350,7 @@ const Mongonian = OutputFormat.extend({
                     //item is now the set of values to save
                     if(validate(item, endpoint.originalSchema)){
                         endpoint.instances[options.body[primaryKey]] = item;
-                        
-                        callback(null, item);
+                        callback(err, item);
                     }else{
                         //fail
                         callback(new Error('Failed to update item'))
@@ -376,7 +375,7 @@ const Mongonian = OutputFormat.extend({
                     if(endpoint.deleted && (endpoint.deleted.indexOf(options[primaryKey]) === -1)){
                         endpoint.deleted.push(options[primaryKey]);
                     }
-                    callback(null, {});
+                    callback(err, {});
                 }else{
                     //fail
                     callback(new Error('Failed to update item'))
