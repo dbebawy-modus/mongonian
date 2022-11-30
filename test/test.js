@@ -4,7 +4,6 @@ const Tests = require('@perigress/perigress/test/util.js');
 const path = require('path');
 const arrays = require('async-arrays');
 const express = require('express');
-const bodyParser = require('body-parser');
 const request = require('postman-request');
 const ks = require('kitchen-sync');
 const Mongoish = require('../mongonian');
@@ -534,7 +533,7 @@ describe('perigress', ()=>{
 		it('can perform aggregations', (done)=>{
 			try{
 				const app = express();
-				app.use(bodyParser.json({strict: false}));
+				app.use(express.json({strict: false}));
 				const api = new Perigress.DummyAPI({
 					subpath : 'audit-fk-api',
 					dir: __dirname
@@ -569,7 +568,7 @@ describe('perigress', ()=>{
 		it('aggregation should forward request to lookup hook', (done)=>{
 			try{
 				const app = express();
-				app.use(bodyParser.json({strict: false}));
+				app.use(express.json({strict: false}));
 				const api = new Perigress.DummyAPI({
 					subpath : 'audit-fk-api',
 					dir: __dirname
@@ -614,7 +613,7 @@ describe('perigress', ()=>{
 		it('can perform wildcard searches', (done)=>{
 			try{
 				const app = express();
-				app.use(bodyParser.json({strict: false}));
+				app.use(express.json({strict: false}));
 				const api = new Perigress.DummyAPI({
 					subpath : 'audit-fk-api',
 					dir: __dirname
@@ -662,7 +661,7 @@ describe('perigress', ()=>{
 		
 		it('runs a custom lookup that dumps static objects', (done)=>{
 			const app = express();
-			app.use(bodyParser.json({strict: false}));
+			app.use(express.json({strict: false}));
 			// A replication of the internal lookup;
 			let lookupCounter = 0;
             let deleteCounter = 0;
