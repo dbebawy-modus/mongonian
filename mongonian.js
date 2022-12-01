@@ -214,13 +214,17 @@ const Mongonian = OutputFormat.extend({
         }
         
         if(!endpoint.search) endpoint.search = function(options, cb){
+            let callback = ks(cb);
             try{
+                const httpReq = options.req;
+                delete options.req;
                 let searchToRegexOptions = JSON.parse(JSON.stringify(options));
-                let callback = ks(cb);
                 //implement
                 let path = searchToRegexOptions.wildcard.path;
+                let isSinglePath = false;
                 if(!Array.isArray(path)){
                     path = [path];
+                    isSinglePath = true;
                 }
                 let config = endpoint.config();
                 let primaryKey = config.primaryKey || 'id';
@@ -229,20 +233,28 @@ const Mongonian = OutputFormat.extend({
                 }
                 let regex = new RegExp(searchToRegexOptions.wildcard.query.replace(/\*/g, ".*"));
                 let searchCriteria = options.query;
-                searchCriteria["$or"] = [];
-                path.forEach((path)=>{
-                    let crit = {};
-                    crit[path] = {$regex: regex};
-                    searchCriteria["$or"].push(crit);
-                });
+                if(!isSinglePath) {
+                    searchCriteria["$or"] = [];
+                    path.forEach((path)=>{
+                        let crit = {};
+                        crit[path] = {$regex: regex};
+                        searchCriteria["$or"].push(crit);
+                    });
+                }
+                else {
+                    searchCriteria[path[0]] = {$regex: regex};
+                }
                 searchToRegexOptions.query = searchCriteria;
-                endpoint.list(searchToRegexOptions, (err, results)=>{
+                endpoint.list({
+                    ...searchToRegexOptions,
+                    req : httpReq
+                }, (err, results)=>{
                     callback(err, results);
                 });
-                return callback.return;
             }catch(ex){
                 callback(ex);
             }
+            return callback.return;
         }
         
         const aggOps = {
@@ -513,7 +525,10 @@ const Mongonian = OutputFormat.extend({
                 method: endpoint.endpointOptions.method.toLowerCase(),
                 handler: (req, res)=>{
                     let options = typeof req.body === 'string'?req.params:req.body;
-                    endpoint.search(options, (err, results)=>{
+                    endpoint.search({
+                        ...options,
+                        req,
+                    }, (err, results)=>{
                         endpoint.returnContent(res, {success: true, result: results}, errorConfig, config);
                     });
                 }
