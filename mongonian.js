@@ -221,11 +221,10 @@ const Mongonian = OutputFormat.extend({
                 let searchToRegexOptions = JSON.parse(JSON.stringify(options));
                 //implement
                 let path = searchToRegexOptions.wildcard.path;
-                let isSinglePath = false;
                 if(!Array.isArray(path)){
                     path = [path];
-                    isSinglePath = true;
                 }
+                const isSinglePath = path.length === 1;
                 let config = endpoint.config();
                 let primaryKey = config.primaryKey || 'id';
                 if(!searchToRegexOptions.wildcard){
