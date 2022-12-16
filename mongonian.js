@@ -1,18 +1,18 @@
 const peri = '@perigress/perigress';
 const OutputFormat = require(peri+'/src/output-format.js');
 const template = require('es6-template-strings');
-const arrays = require('async-arrays');
+//const arrays = require('async-arrays');
 const hash = require('object-hash');
 const access = require('object-accessor');
 const validate = require('jsonschema').validate;
 const jsonSchemaFaker = require('json-schema-faker');
 const ks = require('kitchen-sync');
 const {
-    stringsToStructs, 
-    copyJSON, 
+    //stringsToStructs, 
+    //copyJSON, 
     handleList, 
-    getExpansions, 
-    makeLookup, 
+    //getExpansions, 
+    //makeLookup, 
     handleBatch, 
     handleListPage
 } = require('./util.js');
@@ -114,7 +114,7 @@ const getUrls = (config, pathOptions, endpoint)=>{
     };
     endpoint.urls = urls;
     return endpoint.urls;
-}
+};
 
 const QueryDocumentSchema = {
     type: 'object',
@@ -122,45 +122,44 @@ const QueryDocumentSchema = {
     additionalProperties: {
         type: 'object',
         properties: {
-            "$in": {type:'array', required:false},
-            "$nin": {type:'array', required:false},
-            "$exists": {type:'boolean', required:false},
-            "$gte": {type:'number', required:false},
-            "$gt": {type:'number', required:false},
-            "$lte": {type:'number', required:false},
-            "$lt": {type:'number', required:false},
-            "$eq": { required:false},
-            "$ne": { required:false},
-            "$mod": {type:'array', required:false},
-            "$all": {type:'array', required:false},
-            "$and": {
-                    type:'array', 
-                    items:{
-                        $ref:'#/components/schemas/QueryDocumentFilter'
-                    }, required:false
+            '$in': {type:'array', required:false},
+            '$nin': {type:'array', required:false},
+            '$exists': {type:'boolean', required:false},
+            '$gte': {type:'number', required:false},
+            '$gt': {type:'number', required:false},
+            '$lte': {type:'number', required:false},
+            '$lt': {type:'number', required:false},
+            '$eq': { required:false},
+            '$ne': { required:false},
+            '$mod': {type:'array', required:false},
+            '$all': {type:'array', required:false},
+            '$and': {
+                type:'array', 
+                items:{
+                    $ref:'#/components/schemas/QueryDocumentFilter'
+                }, required:false
             },
-            "$or": {
-                    type:'array', 
-                    items:{
-                        $ref:'#/components/schemas/QueryDocumentFilter'
-                    }, required:false
+            '$or': {
+                type:'array', 
+                items:{
+                    $ref:'#/components/schemas/QueryDocumentFilter'
+                }, required:false
             },
-            "$nor": {
-                    type:'array', 
-                    items:{
-                        $ref:'#/components/schemas/QueryDocumentFilter'
-                    }, required:false
+            '$nor': {
+                type:'array', 
+                items:{
+                    $ref:'#/components/schemas/QueryDocumentFilter'
+                }, required:false
             },
-            "$not": {
-                    type:'array', 
-                    items:{
-                        $ref:'#/components/schemas/QueryDocumentFilter'
-                    }, required:false
+            '$not': {
+                type:'array', 
+                items:{
+                    $ref:'#/components/schemas/QueryDocumentFilter'
+                }, required:false
             },
-            "$size": {type:'integer', required:false},
-            "$type": {type:'object', required:false},
-            "$lt": {type:'number', required:false},
-            "$elemMatch": {type:'object', required:false}
+            '$size': {type:'integer', required:false},
+            '$type': {type:'object', required:false},
+            '$elemMatch': {type:'object', required:false}
         }
     }
 };
@@ -192,7 +191,7 @@ const Mongonian = OutputFormat.extend({
                 console.log(ex);
             }
             return callback.return;
-        }
+        };
         
         if(!endpoint.batch) endpoint.batch = function(options, tree, cb){
             let callback = ks(cb);
@@ -211,7 +210,7 @@ const Mongonian = OutputFormat.extend({
                 console.log(ex);
             }
             return callback.return;
-        }
+        };
         
         if(!endpoint.search) endpoint.search = function(options, cb){
             let callback = ks(cb);
@@ -225,19 +224,19 @@ const Mongonian = OutputFormat.extend({
                     path = [path];
                 }
                 const isSinglePath = path.length === 1;
-                let config = endpoint.config();
-                let primaryKey = config.primaryKey || 'id';
+                // let config = endpoint.config();
+                // let primaryKey = config.primaryKey || 'id';
                 if(!searchToRegexOptions.wildcard){
-                    return callback(new Error("searching requires the wildcard property"));
+                    return callback(new Error('searching requires the wildcard property'));
                 }
-                let regex = new RegExp(searchToRegexOptions.wildcard.query.replace(/\*/g, ".*"));
+                let regex = new RegExp(searchToRegexOptions.wildcard.query.replace(/\*/g, '.*'));
                 let searchCriteria = options.query;
                 if(!isSinglePath) {
-                    searchCriteria["$or"] = [];
+                    searchCriteria['$or'] = [];
                     path.forEach((path)=>{
                         let crit = {};
                         crit[path] = {$regex: regex};
-                        searchCriteria["$or"].push(crit);
+                        searchCriteria['$or'].push(crit);
                     });
                 }
                 else {
@@ -254,7 +253,7 @@ const Mongonian = OutputFormat.extend({
                 callback(ex);
             }
             return callback.return;
-        }
+        };
         
         const aggOps = {
             sum : (aggregate, currentValue, currentItem, meta)=>{
@@ -263,7 +262,7 @@ const Mongonian = OutputFormat.extend({
             count : (aggregate, currentValue, currentItem, meta)=>{
                 return (aggregate || 0) + 1;
             }
-        }
+        };
         if(!endpoint.aggregation) endpoint.aggregation = function(options, cb){
             let callback = ks(cb);
             //implement
@@ -278,9 +277,9 @@ const Mongonian = OutputFormat.extend({
                 else identifiers.push({
                     field: key,
                     source: options.$group[key]
-                })
+                });
             });
-            let result = {};
+            //let result = {};
             endpoint.api.internal(endpoint.options.name, 'list', {
                 query: options.$match,
                 req: options.req,
@@ -296,10 +295,10 @@ const Mongonian = OutputFormat.extend({
                         aggregates[idHash] = {
                             total: 0,
                             values: {}
-                        }
+                        };
                         Object.keys(idVals).forEach((key)=>{
                             aggregates[idHash].values[key] = idVals[key];
-                        })
+                        });
                     }
                     aggregations.forEach((aggregation)=>{
                         aggregates[idHash].values[aggregation.field] = aggOps[aggregation.operation](
@@ -307,7 +306,7 @@ const Mongonian = OutputFormat.extend({
                             item[aggregation.target],
                             item,
                             aggregates[idHash]
-                        )
+                        );
                     });
                     aggregates[idHash].total++;
                 });
@@ -315,10 +314,10 @@ const Mongonian = OutputFormat.extend({
                     callback(err, Object.keys(aggregates).map((key)=>{
                         return aggregates[key].values;
                     }));
-                })
+                });
             });
             return callback.return;
-        }
+        };
         
         if(!endpoint.create) endpoint.create = function(options, cb){
             let callback = ks(cb);
@@ -330,10 +329,10 @@ const Mongonian = OutputFormat.extend({
                 endpoint.instances[item[primaryKey]] = item;
                 callback(null, item);
             }else{
-                callback(new Error("the provided data was not valid"));
+                callback(new Error('the provided data was not valid'));
             }
             return callback.return;
-        }
+        };
         
         if(!endpoint.read) endpoint.read = function(options, cb){
             let callback = ks(cb);
@@ -343,11 +342,11 @@ const Mongonian = OutputFormat.extend({
                 callback(null, item);
             });
             return callback.return;
-        }
+        };
         
         if(!endpoint.createUrl) endpoint.createUrl = function(instance, options){
             instance[options.method](options.url, options.handler);
-        }
+        };
         
         if(!endpoint.update) endpoint.update = function(options, cb){
             let callback = ks(cb);
@@ -364,15 +363,15 @@ const Mongonian = OutputFormat.extend({
                         callback(err, item);
                     }else{
                         //fail
-                        callback(new Error('Failed to update item'))
+                        callback(new Error('Failed to update item'));
                     }
                 }else{
                     //fail
-                    callback(new Error('Failed to update item'))
+                    callback(new Error('Failed to update item'));
                 }
-            })
+            });
             return callback.return;
-        }
+        };
         
         if(!endpoint.delete) endpoint.delete = function(options, cb){
             let callback = ks(cb);
@@ -389,11 +388,11 @@ const Mongonian = OutputFormat.extend({
                     callback(err, {});
                 }else{
                     //fail
-                    callback(new Error('Failed to update item'))
+                    callback(new Error('Failed to update item'));
                 }
             });
             return callback.return;
-        }
+        };
     },
     attachRoot : function(instance, api, cb){
         api.ready.then(()=>{
@@ -405,7 +404,7 @@ const Mongonian = OutputFormat.extend({
                             'display': '', 
                             'create': '', 
                             'edit': ''
-                        }
+                        };
                         let serverList = [];
                         let pathReferenceDirectory = {};
                         api.endpoints.forEach((endpoint)=>{
@@ -414,7 +413,7 @@ const Mongonian = OutputFormat.extend({
                                 'display': endpoint.urls.display.replace(':id', '{id}'), 
                                 'create': endpoint.urls.create, 
                                 'edit': endpoint.urls.edit.replace(':id', '{id}')
-                            }
+                            };
                             Object.keys(org).forEach((key)=>{
                                 pathReferenceDirectory[org[key]] = {$ref: endpoint.basePath+'/'+key+'-schema.json'};
                             });
@@ -469,19 +468,18 @@ const Mongonian = OutputFormat.extend({
         });
     },
     attachEndpoint : function(expressInstance, endpoint, {
-            prefix, 
-            urlPath, 
-            config, 
-            errorConfig, 
-            primaryKey,
-            resultSpec,
-            cleaned,
-            readOnly,
-            pathOptions
-        }){
-            
+        prefix, 
+        urlPath, 
+        config, 
+        errorConfig, 
+        primaryKey,
+        resultSpec,
+        cleaned,
+        readOnly,
+        pathOptions
+    }){ 
         let urls = getUrls(config, pathOptions, endpoint);
-        endpoint.basePath = urlPath
+        endpoint.basePath = urlPath;
         
         endpoint.createUrl(expressInstance, {
             url: urls.list,
@@ -569,7 +567,7 @@ const Mongonian = OutputFormat.extend({
                     if(err){
                         res.send(`{"error":true, "message":"${
                             err.message ||
-                            "the provided data could not be saved"
+                            'the provided data could not be saved'
                         }"}`);
                     }
                     endpoint.returnContent(res, {success: true, result: item}, errorConfig, config);
@@ -586,7 +584,7 @@ const Mongonian = OutputFormat.extend({
                         if(err){
                             res.send(`{"error":true, "message":"${
                                 err.message ||
-                                "the provided data could not be saved"
+                                'the provided data could not be saved'
                             }"}`);
                         }else{
                             endpoint.returnContent(res, {success:true}, errorConfig, config);
@@ -611,10 +609,10 @@ const Mongonian = OutputFormat.extend({
                     if(err){
                         res.send(`{"error":true, "message":"${
                             err.message ||
-                            "the provided data could not be saved"
+                            'the provided data could not be saved'
                         }"}`);
                     }else{
-                        res.send(JSON.stringify(results, null, '    '))
+                        res.send(JSON.stringify(results, null, '    '));
                     }
                 });
             }
@@ -625,17 +623,18 @@ const Mongonian = OutputFormat.extend({
         
     },
     attachEndpointSpec : function(expressInstance, endpoint, {
-            prefix, 
-            urlPath, 
-            config, 
-            errorConfig, 
-            primaryKey,
-            resultSpec,
-            cleaned,
-            readOnly,
-            pathOptions
-        }){
-        let urls = getUrls(config, pathOptions, endpoint);
+        prefix, 
+        urlPath, 
+        config, 
+        errorConfig, 
+        primaryKey,
+        resultSpec,
+        cleaned,
+        readOnly,
+        pathOptions
+    }){
+        
+        getUrls(config, pathOptions, endpoint);
         let opts = {
             objectName: endpoint.options.name
         };
@@ -659,10 +658,14 @@ const Mongonian = OutputFormat.extend({
                                 content: {
                                     'application/json' : {
                                         schema : {
-                                            type: "object",
+                                            type: 'object',
                                             properties: {
                                                 query : { $ref:'#/components/schemas/QueryDocumentFilter' },
-                                                link: {type: "array", required: false, items:{ type: "string" }}
+                                                link: {
+                                                    type: 'array', 
+                                                    required: false, 
+                                                    items:{ type: 'string' }
+                                                }
                                             }
                                         }
                                     }
@@ -777,7 +780,7 @@ const Mongonian = OutputFormat.extend({
                             }
                         }
                     }
-                }))
+                }));
             });
         });
         expressInstance[
@@ -814,7 +817,7 @@ const Mongonian = OutputFormat.extend({
                             }
                         }
                     }
-                }))
+                }));
             });
         });
     }

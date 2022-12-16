@@ -12,7 +12,7 @@ const handleListPage = (ob, pageNumber, req, res, urlPath, instances, options = 
     handleList(ob, pageNumber, urlPath, instances, options, req, (err, returnValue, set, len, write, meta)=>{
         if(err){
             res.send(JSON.stringify({
-                status: "error",
+                status: 'error',
                 message: err.message
             }));
             return;
@@ -45,14 +45,23 @@ const handleBatch = (ob, pageNumber, req, res, urlPath, instances, options, call
     });
     let tpe = getExpansions(options, config);
     let result = {};
+    let shortcircuited = false;
+    let error = null;
+    let shortcircuit = (cb, err)=>{
+        shortcircuited = true;
+        error = err;
+        cb();
+    }
     arrays.forEachEmission(options.objects, (object, obIndex, objectFinished)=>{
         populate.deconstruct(ob.options.name, object, tpe, res, (err, objects)=>{
             let order = populate.orderBatches(objects);
             arrays.forEachEmission(order, (type, index, complete)=>{
                 arrays.forEachEmission(objects[type], (object, index, objectSaved)=>{
+                    if(shortcircuited) return objectSaved();
                     let rendered = copyJSON(object);
                     ob.save(ob, identifier, type, rendered, (err, saved)=>{
                         if(!result[type]) result[type] = [];
+                        if(err) return shortcircuit(objectSaved, err);
                         result[type].push(saved);
                         Object.keys(object).forEach((key)=>{
                             if(typeof object[key] === 'function'){
@@ -76,14 +85,14 @@ const handleBatch = (ob, pageNumber, req, res, urlPath, instances, options, call
         if(callback === true){
             ob.returnContent(res, result, errorConfig, config);
         }else{
-            callback(null, result);
+            callback(error, result);
         }
     });
 };
 
 const makeLookup = (ob, primaryKey, identifier)=>{
     const lookup = (type, context, req, cb) => {
-        let lcs = (new Error()).stack;
+        //let lcs = (new Error()).stack;
         let res = ob.api.endpoints.find((item)=>{
             return item.options.name === type;
         });
@@ -102,7 +111,7 @@ const makeLookup = (ob, primaryKey, identifier)=>{
                     });
                 }
             }, ()=>{
-                let keys = Object.keys(res.instances);
+                //let keys = Object.keys(res.instances);
                 cb && cb(null, items);
             });
         }else{
@@ -114,9 +123,9 @@ const makeLookup = (ob, primaryKey, identifier)=>{
             ){
                 let parts = ob.options.expandable(type, keys[0], criteria[keys[0]]);
                 if(parts){ //is a foreign key
-                    let ep = ob.api.endpoints.find((item)=>{
+                    /*let ep = ob.api.endpoints.find((item)=>{
                         return item.options.name === parts.type;
-                    });
+                    });*/
                     let instanceList = Object.keys(res.instances).map((key)=> res.instances[key]);
                     let instancesMeetingCriteria = instanceList.filter(ob.api.sift(criteria));
                     if(instancesMeetingCriteria.length){
@@ -130,7 +139,7 @@ const makeLookup = (ob, primaryKey, identifier)=>{
                         ){
                             id = criteria[keys[0]]['$in'].shift();
                         }else{
-                            id = res.nextId(res)
+                            id = res.nextId(res);
                         }
                         res.generate(id, (err, generated)=>{
                             Object.keys(criteria).forEach((key)=>{
@@ -146,7 +155,7 @@ const makeLookup = (ob, primaryKey, identifier)=>{
                     return;
                 }
                 if(criteria[identifier] && criteria[identifier]['$in']){
-                    return lookup(type, criteria[identifier]['$in'], req, cb, {config, options})
+                    return lookup(type, criteria[identifier]['$in'], req, cb, {config, options});
                 }
             }else{
                 /* ob.api.internal(type, 'list', {body:{
@@ -173,9 +182,9 @@ const makeLookup = (ob, primaryKey, identifier)=>{
                 }); //*/
             }
         }
-    }
+    };
     return lookup;
-}
+};
 
 const getExpansions = (options, config)=>{
     let tpe = [];
@@ -200,26 +209,24 @@ const getExpansions = (options, config)=>{
             switch(expansion.type){
                 case 'internal':
                     return expansion.expand;
-                    break;
-                case 'link':
+                case 'link': {
                     let parts = expansion.expand.split('+');
                     return parts[0]+parts[1][0].toUpperCase()+
                         parts[1].substring(1)+':'+parts[0]+
                         ':'+parts[1];
-                    break;
+                }
                 case 'external':
                     return '<'+expansion.expand;
-                    break;
-                default: throw new Error('Unrecognized type:'+expansion.type)
+                default: throw new Error('Unrecognized type:'+expansion.type);
             }
         });
     }
     return tpe;
-}
+};
 
 const handleList = (ob, pageNumber, urlPath, instances, options, req, callback)=>{
     let config = ob.config();
-    let errorConfig = ob.errorSpec();
+    //let errorConfig = ob.errorSpec();
     //TODO: make default come from datasource
     let primaryKey = config.primaryKey || 'id';
     let identifier = ob.options.identifier || 'id';
@@ -277,7 +284,7 @@ const handleList = (ob, pageNumber, urlPath, instances, options, req, callback)=
         }
         access.set(results, resultSpec.resultSetLocation, set);
         return results;
-    }
+    };
     if(ob.api.doNotSeedLists || options.doNotSeedLists){
         let items = [];
         lookup(ob.options.name, options.query || {}, req, (err, res, meta)=>{
@@ -293,7 +300,7 @@ const handleList = (ob, pageNumber, urlPath, instances, options, req, callback)=
                     callback(null, {}, forest, null, writeResults, meta);
                 });
             }else{
-                items = items.concat(res)
+                items = items.concat(res);
                 callback(null, {}, items, null, writeResults, meta);
             }
         }, {config, options});
@@ -306,7 +313,7 @@ const handleList = (ob, pageNumber, urlPath, instances, options, req, callback)=
         idGen = ()=>{
             let value = gen.randomString(30);
             return value;
-        }
+        };
     }
     if(
         ob.schema.properties[primaryKey].type === 'number' ||
@@ -315,7 +322,7 @@ const handleList = (ob, pageNumber, urlPath, instances, options, req, callback)=
         idGen = ()=>{
             let v = gen.randomInt(0, 10000);
             return v;
-        }
+        };
     }
     let length = pageSize * gen.randomInt(1, 2) + gen.randomInt(0, pageSize);
     if(options.query && options.expand){ // generate more, so we have more potential results
@@ -356,11 +363,11 @@ const handleList = (ob, pageNumber, urlPath, instances, options, req, callback)=
                     cb(err, items);
                 });
             }else{
-                items = items.concat(res)
+                items = items.concat(res);
                 cb(err, items);
             }
         }, {config, options});
-    }
+    };
     jsonSchemaFaker.resolve(cleaned, [], process.cwd()).then((returnValue)=>{
         if(!options.query){ // we are going to do only the work on the page
             try{
@@ -369,7 +376,7 @@ const handleList = (ob, pageNumber, urlPath, instances, options, req, callback)=
                 fillList(seeds, options, (err, filled)=>{
                     callback(null, returnValue, filled, null, writeResults);
                 });
-            }catch(ex){ console.log(ex) }
+            }catch(ex){ console.log(ex); }
         }else{ // we do all the work: we need to reduce using full values
             let opts = pageVars();
             fillList(seeds, options, (err, filled)=>{
@@ -403,13 +410,12 @@ const handleList = (ob, pageNumber, urlPath, instances, options, req, callback)=
                                             item[key] = result;
                                         }else{
                                             if( typeof (
-                                                    options.query[key]['$lt'] || 
-                                                    options.query[key]['$gt']
-                                                ) === 'string'
-                                            ){
+                                                options.query[key]['$lt'] || 
+                                                options.query[key]['$gt']
+                                            ) === 'string' ){
                                                 const lower = new Date(options.query[key]['$gt'] || '01/01/1970 00:00:00 UTC');
                                                 const upper = new Date(options.query[key]['$lt']);
-                                                const lowerLimit = lower.getTime()
+                                                const lowerLimit = lower.getTime();
                                                 const diff =  upper.getTime() - lower.getTime();
                                                 let result = Math.floor(Math.random() * diff) + lowerLimit;
                                                 let resultDate = new Date();
@@ -455,7 +461,7 @@ const copyJSON = (ob)=>{
         if(copy[key] === null) delete copy[key];
     });
     return copy;
-}
+};
 
 const stringsToStructs = (strs, field, type)=>{
     let map =  strs.map((v)=>{

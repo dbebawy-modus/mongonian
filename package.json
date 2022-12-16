@@ -1,6 +1,6 @@
 {
     "name": "@perigress/mongonian",
-    "version": "0.1.22",
+    "version": "0.1.23",
     "main": "mongonian.js",
     "description": "Mongo like output format for Perigress",
     "keywords": [
@@ -19,16 +19,19 @@
     "contributors": [],
     "devDependencies": {
         "chai": "^4.3.6",
+        "eslint": "^8.29.0",
         "express": "^4.18.1",
         "joi": "^17.6.0",
         "mocha": "^10.0.0",
+        "mocha-json-output-reporter": "^2.0.1",
         "postman-request": "^2.88.1-postman.31"
     },
     "scripts": {
-        "test": "./test-runner.js test/audit-fk-api"
+        "test": "./test-runner.js test/audit-fk-api",
+        "test-json": "./node_modules/mocha/bin/_mocha --reporter ./node_modules/mocha-json-output-reporter --reporter-options output=/dev/stdout"
     },
     "dependencies": {
-        "@perigress/perigress": "0.2.4",
+        "@perigress/perigress": "0.2.5",
         "async-arrays": "^1.0.1",
         "es6-template-strings": "^2.0.1",
         "json-schema-faker": "^0.5.0-rcv.44",
