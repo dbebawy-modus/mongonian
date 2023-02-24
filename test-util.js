@@ -16,16 +16,16 @@ const testAPI = (p, cb)=>{
     api.ready.then(()=>{
         api.attach(app, ()=>{
             const server = app.listen(port, ()=>{
-                cb(null, app, (cb)=>{
+                cb(null, app, (finish)=>{
                     server.close(()=>{
-                        cb();
+                        finish();
                     });
                 }, (type)=>{
                     let joiSchema = require(path.join(
                         module.exports.dir, p, 'v1', type+'.spec.js'
                     ));
                     return joiSchema;
-                })
+                }, api)
             });
         });
     }).catch((ex)=>{
@@ -79,7 +79,7 @@ const passthruAPIFromLookup = (basePort, baseDir, apiType, lookup, cb)=>{
     const app = express();
     const port = basePort;
     const backendPort = basePort + 1;
-    
+
     app.use(express.json({strict: false}));
     // A replication of the internal lookup;
     let api;
@@ -89,7 +89,7 @@ const passthruAPIFromLookup = (basePort, baseDir, apiType, lookup, cb)=>{
     }, new Mongoish(), { lookup });
     api.doNotSeedLists = true;
     //const lookup = lookupGenerator(api);
-    
+
     const backendApp = express();
     backendApp.use(express.json({strict: false}));
     const backendApi = new Perigress.DummyAPI({
