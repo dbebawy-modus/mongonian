@@ -23,6 +23,7 @@ const handleListPage = (ob, pageNumber, req, res, urlPath, instances, options = 
 };
 
 const handleBatch = (ob, pageNumber, req, res, urlPath, instances, options, callback)=>{
+
     let config = ob.config();
     let errorConfig = ob.errorSpec();
     //TODO: make default come from datasource
@@ -59,7 +60,7 @@ const handleBatch = (ob, pageNumber, req, res, urlPath, instances, options, call
                 arrays.forEachEmission(objects[type], (object, index, objectSaved)=>{
                     if(shortcircuited) return objectSaved();
                     let rendered = copyJSON(object);
-                    ob.save(ob, identifier, type, rendered, (err, saved)=>{
+                    ob.save({ob, identifier, type, item: rendered, req}, (err, saved)=>{
                         if(!result[type]) result[type] = [];
                         if(err) return shortcircuit(objectSaved, err);
                         result[type].push(saved);
@@ -133,8 +134,8 @@ const makeLookup = (ob, primaryKey, identifier)=>{
                     }else{
                         let id;
                         if(
-                            criteria[keys[0]] && 
-                            criteria[keys[0]]['$in'] && 
+                            criteria[keys[0]] &&
+                            criteria[keys[0]]['$in'] &&
                             criteria[keys[0]]['$in'].length
                         ){
                             id = criteria[keys[0]]['$in'].shift();
@@ -250,7 +251,7 @@ const handleList = (ob, pageNumber, urlPath, instances, options, req, callback)=
     let resultSpec = ob.resultSpec();
     let cleaned = ob.cleanedSchema(resultSpec.returnSpec);
     let pageVars = (meta)=>{
-        let metaPage = (meta && meta.page) || {}; 
+        let metaPage = (meta && meta.page) || {};
         let pageOpts =  options.page || {};
         let size = metaPage.size || pageOpts.size || config.defaultSize || 30;
         let finalPageNumber = metaPage.number || pageNumber;
@@ -410,7 +411,7 @@ const handleList = (ob, pageNumber, urlPath, instances, options, req, callback)=
                                             item[key] = result;
                                         }else{
                                             if( typeof (
-                                                options.query[key]['$lt'] || 
+                                                options.query[key]['$lt'] ||
                                                 options.query[key]['$gt']
                                             ) === 'string' ){
                                                 const lower = new Date(options.query[key]['$gt'] || '01/01/1970 00:00:00 UTC');
@@ -473,11 +474,11 @@ const stringsToStructs = (strs, field, type)=>{
 };
 
 module.exports = {
-    stringsToStructs, 
-    copyJSON, 
-    handleList, 
-    getExpansions, 
-    makeLookup, 
-    handleBatch, 
+    stringsToStructs,
+    copyJSON,
+    handleList,
+    getExpansions,
+    makeLookup,
+    handleBatch,
     handleListPage
 };

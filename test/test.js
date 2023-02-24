@@ -53,9 +53,9 @@ describe('perigress', ()=>{
         });
 
     });
-    
+
     describe('works using well-known-regex overlay', ()=>{
-    
+
         it('runs the demo API and requests a consistent object', (done)=>{
             testAPI('wkr-api', async (err, app, closeAPI, getValidator)=>{
                 should.not.exist(err);
@@ -83,11 +83,11 @@ describe('perigress', ()=>{
                 closeAPI(done);
             });
         });
-    
+
     });
-    
+
     describe('works using a paging API', ()=>{
-    
+
         it('runs the demo API and requests a consistent object', (done)=>{
             testAPI('paged-wkr-api', async (err, app, closeAPI, getValidator)=>{
                 should.not.exist(err);
@@ -119,33 +119,33 @@ describe('perigress', ()=>{
                 closeAPI(done);
             });
         });
-    
+
         it('saves changes', (done)=>{
             testAPI('paged-wkr-api', async (err, app, closeAPI, getValidator)=>{
                 should.not.exist(err);
                 try{
-                    let firstListRequest = await rqst({ 
-                        url: `http://localhost:${port}/v1/user/list`, 
-                        method, 
-                        json: true 
+                    let firstListRequest = await rqst({
+                        url: `http://localhost:${port}/v1/user/list`,
+                        method,
+                        json: true
                     });
                     item = firstListRequest.body.results[0];
                     item.firstName = 'Bob';
-                    let editRequest = await rqst({ 
-                        url: `http://localhost:${port}/v1/user/${item.id}/edit`, 
-                        method, 
-                        json: item 
+                    let editRequest = await rqst({
+                        url: `http://localhost:${port}/v1/user/${item.id}/edit`,
+                        method,
+                        json: item
                     });
-                    let identityRequest = await rqst({ 
-                        url: `http://localhost:${port}/v1/user/${item.id}`, 
-                        method, 
-                        json: true 
+                    let identityRequest = await rqst({
+                        url: `http://localhost:${port}/v1/user/${item.id}`,
+                        method,
+                        json: true
                     });
                     identityRequest.body.firstName.should.equal('Bob');
-                    let secondListRequest = await rqst({ 
-                        url: `http://localhost:${port}/v1/user/list`, 
-                        method, 
-                        json: true 
+                    let secondListRequest = await rqst({
+                        url: `http://localhost:${port}/v1/user/list`,
+                        method,
+                        json: true
                     });
                     secondListRequest.body.results[0].firstName.should.equal('Bob');
                 }catch(ex){
@@ -155,21 +155,21 @@ describe('perigress', ()=>{
                 closeAPI(done);
             });
         });
-    
+
     });
-    
+
     describe('works using a paging API with audit columns and custom FK (underscore) handling', ()=>{
-        
+
         it('loads and fetches generated objects through links', function(done){
             this.timeout(20000);
             testAPI('audit-fk-api', async (err, app, closeAPI, getValidator)=>{
                 should.not.exist(err);
                 try{
-                    let listRequest = await rqst({ 
-                        url: `http://localhost:${port}/v1/user/list`, 
+                    let listRequest = await rqst({
+                        url: `http://localhost:${port}/v1/user/list`,
                         method, json: { query: {},
                             link: ['user+transaction']
-                        } 
+                        }
                     });
                     should.exist(listRequest.body);
                     should.exist(listRequest.body.results);
@@ -183,11 +183,11 @@ describe('perigress', ()=>{
                         url: `http://localhost:${port}/v1/transaction/${item.id}/edit`,
                         method, json: item
                     });
-                    let secondListRequest = await rqst({ 
-                        url: `http://localhost:${port}/v1/user/list`, 
+                    let secondListRequest = await rqst({
+                        url: `http://localhost:${port}/v1/user/list`,
                         method, json: { query: {},
                             link: ['user+transaction']
-                        } 
+                        }
                     });
                     should.exist(secondListRequest);
                     should.exist(secondListRequest.body.results);
@@ -203,20 +203,20 @@ describe('perigress', ()=>{
                 closeAPI(done);
             });
         });
-        
+
         it('loads independent links', function(done){
             this.timeout(20000);
             testAPI('audit-fk-api', async (err, app, closeAPI, getValidator)=>{
                 should.not.exist(err);
                 try{
-                    let contracts = await rqst({ 
-                        url: `http://localhost:${port}/v1/contract/list`, 
+                    let contracts = await rqst({
+                        url: `http://localhost:${port}/v1/contract/list`,
                         method, json: { query: {},
                             internal: [
                                 'avatar_user_id',
                                 'creator_user_id'
                             ]
-                        } 
+                        }
                     });
                     should.exist(contracts.body);
                     should.exist(contracts.body.results);
@@ -232,17 +232,17 @@ describe('perigress', ()=>{
                 closeAPI(done);
             });
         });
-        
+
         it('Loads and saves a complex object', function(done){
             this.timeout(20000);
             testAPI('audit-fk-api', async (err, app, closeAPI, getValidator)=>{
                 should.not.exist(err);
                 try{
-                    let listRequest = await rqst({ 
-                        url: `http://localhost:${port}/v1/user/list`, 
+                    let listRequest = await rqst({
+                        url: `http://localhost:${port}/v1/user/list`,
                         method, json: { query: {},
                             link: ['user+transaction']
-                        } 
+                        }
                     });
                     should.exist(listRequest.body);
                     should.exist(listRequest.body.results);
@@ -273,11 +273,11 @@ describe('perigress', ()=>{
                     });
                     //console.log('>>>>', loadedUser, saveRequest.body);
                     //process.exit();
-                    let changedRequest = await rqst({ 
-                        url: `http://localhost:${port}/v1/user/list`, 
+                    let changedRequest = await rqst({
+                        url: `http://localhost:${port}/v1/user/list`,
                         method, json: { query: {},
                             link: ['user+transaction']
-                        } 
+                        }
                     });
                     should.exist(changedRequest.body);
                     should.exist(changedRequest.body.results);
@@ -306,7 +306,65 @@ describe('perigress', ()=>{
                 closeAPI(done);
             });
         });
-        
+
+        it('Can transfer header information on nested save', function(done){
+            this.timeout(20000);
+            testAPI('audit-fk-api', async (err, app, closeAPI, getValidator, api)=>{
+                const endpoint = api.getInstance('user');
+                const seenHeaders = [];
+                endpoint.monitor = (options)=>{
+                    seenHeaders.push(options?.req?.headers);
+                };
+                endpoint.save = (options, cb) => {
+                    const {ob: calledEndpoint, identifier, type: saveType, item, req} = options;
+                    const targetEndpoint = calledEndpoint.api.getInstance(saveType);
+                    if(targetEndpoint.monitor) targetEndpoint.monitor(options, 'create');
+                    if (!item[identifier]) {
+                        targetEndpoint.create({req, body: item}, (err, resultingItem) => {
+                            cb(err, resultingItem);
+                        });
+                    } else {
+                        targetEndpoint.update({req, body: item }, (err, resultingItem) => {
+                            cb(err, resultingItem);
+                        });
+                    }
+                };
+                should.not.exist(err);
+                let tokenValue = "some-token-value"
+                try{
+                    let saveRequest = await rqst({
+                        url: `http://localhost:${port}/v1/user/save`,
+                        method: 'POST',
+                        json: {
+                            objects: [{
+                                card_id: 'SOME_OTHER_THING',
+                                total: '5894.21',
+                                currency: 'USD',
+                                externalTransactionId: '021-661-5622',
+                                network: 'CHASE',
+                                updatedBy: -73800000,
+                                modifiedBy: 56200000,
+                                isDeleted: false
+                            }],
+                        },
+                        headers: {
+                            cookie: `token=${tokenValue}`
+                        }
+                    });
+                    seenHeaders.length.should.be.above(0);
+                    const aHeader = seenHeaders[0];
+                    should.exist(aHeader);
+                    seenHeaders.forEach((headers)=>{
+                        headers.should.deep.equal(aHeader);
+                    });
+                }catch(ex){
+                    console.log(ex);
+                    should.not.exist(ex)
+                }
+                closeAPI(done);
+            });
+        });
+
         it('can list objects it has saved consistently', function(done){
             this.timeout(20000);
             testAPI('paged-wkr-api', async (err, app, closeAPI, getValidator)=>{
@@ -320,13 +378,13 @@ describe('perigress', ()=>{
                 closeAPI(done);
             });
         });
-        
+
         it('returns a consistent type', function(done){
             this.timeout(20000);
             testAPI('paged-wkr-api', async (err, app, closeAPI, getValidator)=>{
                 should.not.exist(err);
                 try{
-                    let savedRequest = await rqst({ 
+                    let savedRequest = await rqst({
                         url: `http://localhost:${port}/v1/user/create`,
                         method,
                         json: {
@@ -361,11 +419,11 @@ describe('perigress', ()=>{
                 closeAPI(done);
             });
         });
-        
+
     });
-    
+
     describe('fetches internally', ()=>{
-        
+
         it('runs the demo API and requests a consistent list', (done)=>{
             const api = new Perigress.DummyAPI({
                 subpath : 'paged-wkr-api',
@@ -394,7 +452,7 @@ describe('perigress', ()=>{
                 });
             });
         });
-        
+
         it('runs the demo API and requests a consistent object', async ()=>{
             try{
                 const api = new Perigress.DummyAPI({
@@ -420,7 +478,7 @@ describe('perigress', ()=>{
                 should.not.exist(ex);
             }
         });
-        
+
         it('saves changes', (done)=>{
             try{
                 const api = new Perigress.DummyAPI({
@@ -431,9 +489,9 @@ describe('perigress', ()=>{
                     api.internal('user', 'list', {}, (err, users)=>{
                         let item = users[0];
                         item.firstName = 'Bob';
-                        api.internal('user', 'update', { 
-                            id : item.id, 
-                            body: item 
+                        api.internal('user', 'update', {
+                            id : item.id,
+                            body: item
                         }, (err, savedUser)=>{
                             should.exist(savedUser);
                             api.internal('user', 'read', { id : item.id}, (err, user)=>{
@@ -448,7 +506,7 @@ describe('perigress', ()=>{
                 should.not.exist(ex);
             }
         });
-        
+
         it('saves changes + deletes', (done)=>{
             try{
                 const api = new Perigress.DummyAPI({
@@ -459,9 +517,9 @@ describe('perigress', ()=>{
                     api.internal('user', 'list', {}, (err, users)=>{
                         let item = users[0];
                         item.firstName = 'Bob';
-                        api.internal('user', 'update', { 
-                            id : item.id, 
-                            body: item 
+                        api.internal('user', 'update', {
+                            id : item.id,
+                            body: item
                         }, (err, savedUser)=>{
                             should.exist(savedUser);
                             api.internal('user', 'read', { id : item.id}, (err, user)=>{
@@ -482,7 +540,7 @@ describe('perigress', ()=>{
                 should.not.exist(ex);
             }
         });
-        
+
         it('saves changes + does not return the generated copy', (done)=>{
             try{
                 const api = new Perigress.DummyAPI({
@@ -493,9 +551,9 @@ describe('perigress', ()=>{
                     api.internal('user', 'list', {}, (err, users)=>{
                         let item = users[0];
                         item.firstName = 'Bob';
-                        api.internal('user', 'update', { 
-                            id : item.id, 
-                            body: item 
+                        api.internal('user', 'update', {
+                            id : item.id,
+                            body: item
                         }, (err, savedUser)=>{
                             should.exist(savedUser);
                             api.internal('user', 'read', { id : item.id}, (err, user)=>{
@@ -515,7 +573,7 @@ describe('perigress', ()=>{
                 should.not.exist(ex);
             }
         });
-        
+
     });
     // Disable the following block for vanilla mocha compatibility
     //*
@@ -528,9 +586,9 @@ describe('perigress', ()=>{
     }else{
         describe('[API SUITE]', ()=>{ it('were the tests run directly with mocha?') });
     }
-    
+
     describe('optional endpoints', ()=>{
-    
+
         it('can perform aggregations', (done)=>{
             try{
                 const app = express();
@@ -543,16 +601,16 @@ describe('perigress', ()=>{
                 }));
                 api.attach(app, ()=>{
                     const server = app.listen(port, async (err)=>{
-                        let listRequest = await rqst({ 
-                            url: `http://localhost:${port}/v1/transaction/aggregation`, 
-                            method, json: { 
+                        let listRequest = await rqst({
+                            url: `http://localhost:${port}/v1/transaction/aggregation`,
+                            method, json: {
                                 query: {},
-                                group: { 
+                                group: {
                                     _id: "card_id",
                                     sumTotal: {$sum: "$total"},
-                                    countTotal: {$count: "$total"} 
+                                    countTotal: {$count: "$total"}
                                 }
-                            } 
+                            }
                         });
                         listRequest.body.result.length.should.equal(20);
                         server.close(()=>{
@@ -588,16 +646,16 @@ describe('perigress', ()=>{
                 }
                 api.attach(app, ()=>{
                     const server = app.listen(port, async (err)=>{
-                        let listRequest = await rqst({ 
-                            url: `http://localhost:${port}/v1/transaction/aggregation`, 
-                            method, json: { 
+                        let listRequest = await rqst({
+                            url: `http://localhost:${port}/v1/transaction/aggregation`,
+                            method, json: {
                                 query: {},
-                                group: { 
+                                group: {
                                     _id: "card_id",
                                     sumTotal: {$sum: "$total"},
-                                    countTotal: {$count: "$total"} 
+                                    countTotal: {$count: "$total"}
                                 }
-                            } 
+                            }
                         });
                         listRequest.body.result.length.should.equal(20);
                         server.close(()=>{
@@ -610,7 +668,7 @@ describe('perigress', ()=>{
                 should.not.exist(ex);
             }
         });
-        
+
         it('can perform wildcard searches', (done)=>{
             try{
                 const app = express();
@@ -623,9 +681,9 @@ describe('perigress', ()=>{
                 }));
                 api.attach(app, ()=>{
                     const server = app.listen(port, async (err)=>{
-                        request({ 
-                            url: `http://localhost:${port}/v1/transaction/search`, 
-                            method, json: { 
+                        request({
+                            url: `http://localhost:${port}/v1/transaction/search`,
+                            method, json: {
                                 query: {
                                     total: {$eq:32.29177}
                                 },
@@ -633,7 +691,7 @@ describe('perigress', ()=>{
                                     query: "CHA*",
                                     path: "network"
                                 }
-                            } 
+                            }
                         }, (err, res, response)=>{
                             should.not.exist(err);
                             should.exist(response);
@@ -655,11 +713,11 @@ describe('perigress', ()=>{
                 });
             }
         });
-        
+
     });
-    
+
     describe('pluggable logic', ()=>{
-        
+
         it('runs a custom lookup that dumps static objects', (done)=>{
             const app = express();
             app.use(express.json({strict: false}));
@@ -683,7 +741,7 @@ describe('perigress', ()=>{
                 }else{
                     let setContext = context;
                     if(
-                        Object.keys(setContext).length === 1 && 
+                        Object.keys(setContext).length === 1 &&
                         setContext[id]
                     ){
                         setContext = setContext[id];
@@ -713,15 +771,15 @@ describe('perigress', ()=>{
                     cb()
                 }
                 const server = app.listen(8081, async (err)=>{
-                    let listRequest = await rqst({ 
-                        url: `http://localhost:8081/v1/user/list`, 
+                    let listRequest = await rqst({
+                        url: `http://localhost:8081/v1/user/list`,
                         method, json: { query: {},
                             link: ['user+transaction']
-                        } 
+                        }
                     });
-                    let deleteRequest = await rqst({ 
-                        url: `http://localhost:8081/v1/user/foo/delete`, 
-                        method, json: {} 
+                    let deleteRequest = await rqst({
+                        url: `http://localhost:8081/v1/user/foo/delete`,
+                        method, json: {}
                     });
                     lookupCounter.should.be.above(0);
                     deleteCounter.should.be.above(0);
@@ -731,7 +789,7 @@ describe('perigress', ()=>{
                 });
             });
         });
-        
+
         it('runs a custom lookup as a passthrough', function(done){
             this.timeout(10000);
             let lookupCounter = 0;
@@ -747,21 +805,21 @@ describe('perigress', ()=>{
                         outboundContext = ctx;
                     }
                     contexts.push(outboundContext);
-                    request({ 
-                        url: `http://localhost:8082/v1/${type}/list`, 
-                        method, 
-                        json: { 
+                    request({
+                        url: `http://localhost:8082/v1/${type}/list`,
+                        method,
+                        json: {
                             query: outboundContext,
                             generate: req.body.generate, // passthru
                             saveGenerated: req.body.saveGenerated // passthru
-                        } 
+                        }
                     }, (err, res, results)=>{
                         cb(err, results.results);
                     });
                 }catch(ex){ console.log(ex); should.not.exist(ex) }
             }, async (err, server, backendServer)=>{
-                let listRequest = await rqst({ 
-                    url: `http://localhost:8081/v1/user/list`, 
+                let listRequest = await rqst({
+                    url: `http://localhost:8081/v1/user/list`,
                     method, json: { query: {},
                         link: [
                             'user+transaction',
@@ -789,7 +847,7 @@ describe('perigress', ()=>{
                 }
             });
         });
-        
+
         it('can push custom page data from a lookup configured as a passthru', function(done){
             this.timeout(10000);
             let lookupCounter = 0;
@@ -805,21 +863,21 @@ describe('perigress', ()=>{
                         outboundContext = ctx;
                     }
                     contexts.push(outboundContext);
-                    request({ 
-                        url: `http://localhost:8082/v1/${type}/list`, 
-                        method, 
-                        json: { 
+                    request({
+                        url: `http://localhost:8082/v1/${type}/list`,
+                        method,
+                        json: {
                             query: outboundContext,
                             generate: req.body.generate, // passthru
                             saveGenerated: req.body.saveGenerated // passthru
-                        } 
+                        }
                     }, (err, res, results)=>{
                         cb(err, results.results, {page:{total: 230}});
                     });
                 }catch(ex){ console.log(ex); should.not.exist(ex) }
             }, async (err, server, backendServer)=>{
-                let listRequest = await rqst({ 
-                    url: `http://localhost:8081/v1/user/list`, 
+                let listRequest = await rqst({
+                    url: `http://localhost:8081/v1/user/list`,
                     method, json: { query: {},
                         link: [
                             'user+transaction',

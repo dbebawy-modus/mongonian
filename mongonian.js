@@ -8,12 +8,12 @@ const validate = require('jsonschema').validate;
 const jsonSchemaFaker = require('json-schema-faker');
 const ks = require('kitchen-sync');
 const {
-    //stringsToStructs, 
-    //copyJSON, 
-    handleList, 
-    //getExpansions, 
-    //makeLookup, 
-    handleBatch, 
+    //stringsToStructs,
+    //copyJSON,
+    handleList,
+    //getExpansions,
+    //makeLookup,
+    handleBatch,
     handleListPage
 } = require('./util.js');
 
@@ -134,25 +134,25 @@ const QueryDocumentSchema = {
             '$mod': {type:'array', required:false},
             '$all': {type:'array', required:false},
             '$and': {
-                type:'array', 
+                type:'array',
                 items:{
                     $ref:'#/components/schemas/QueryDocumentFilter'
                 }, required:false
             },
             '$or': {
-                type:'array', 
+                type:'array',
                 items:{
                     $ref:'#/components/schemas/QueryDocumentFilter'
                 }, required:false
             },
             '$nor': {
-                type:'array', 
+                type:'array',
                 items:{
                     $ref:'#/components/schemas/QueryDocumentFilter'
                 }, required:false
             },
             '$not': {
-                type:'array', 
+                type:'array',
                 items:{
                     $ref:'#/components/schemas/QueryDocumentFilter'
                 }, required:false
@@ -177,11 +177,11 @@ const Mongonian = OutputFormat.extend({
             delete options.req;
             try{
                 handleList(
-                    endpoint, 
-                    (options.pageNumber?parseInt(options.pageNumber):1), 
-                    `js://${endpoint.options.name}/`, 
-                    endpoint.instances, 
-                    options, 
+                    endpoint,
+                    (options.pageNumber?parseInt(options.pageNumber):1),
+                    `js://${endpoint.options.name}/`,
+                    endpoint.instances,
+                    options,
                     requestObject,
                     (err, returnValue, set, len, write)=>{
                         callback(err, set);
@@ -192,16 +192,16 @@ const Mongonian = OutputFormat.extend({
             }
             return callback.return;
         };
-        
+
         if(!endpoint.batch) endpoint.batch = function(options, tree, cb){
             let callback = ks(cb);
             try{
                 handleBatch(
-                    this, 
-                    (options.pageNumber?parseInt(options.pageNumber):1), 
-                    `js://${this.options.name}/`, 
-                    this.instances, 
-                    options, 
+                    this,
+                    (options.pageNumber?parseInt(options.pageNumber):1),
+                    `js://${this.options.name}/`,
+                    this.instances,
+                    options,
                     (err, returnValue, set, len, write)=>{
                         callback(err, set);
                     }
@@ -211,7 +211,7 @@ const Mongonian = OutputFormat.extend({
             }
             return callback.return;
         };
-        
+
         if(!endpoint.search) endpoint.search = function(options, cb){
             let callback = ks(cb);
             try{
@@ -254,7 +254,7 @@ const Mongonian = OutputFormat.extend({
             }
             return callback.return;
         };
-        
+
         const aggOps = {
             sum : (aggregate, currentValue, currentItem, meta)=>{
                 return (aggregate || 0) + currentValue;
@@ -318,8 +318,9 @@ const Mongonian = OutputFormat.extend({
             });
             return callback.return;
         };
-        
+
         if(!endpoint.create) endpoint.create = function(options, cb){
+            if(endpoint.monitor) endpoint.monitor(options);
             let callback = ks(cb);
             let config = endpoint.config();
             let primaryKey = config.primaryKey || 'id';
@@ -333,8 +334,9 @@ const Mongonian = OutputFormat.extend({
             }
             return callback.return;
         };
-        
+
         if(!endpoint.read) endpoint.read = function(options, cb){
+            if(endpoint.monitor) endpoint.monitor(options);
             let callback = ks(cb);
             let config = endpoint.config();
             let primaryKey = config.primaryKey || 'id';
@@ -343,12 +345,13 @@ const Mongonian = OutputFormat.extend({
             });
             return callback.return;
         };
-        
+
         if(!endpoint.createUrl) endpoint.createUrl = function(instance, options){
             instance[options.method](options.url, options.handler);
         };
-        
+
         if(!endpoint.update) endpoint.update = function(options, cb){
+            if(endpoint.monitor) endpoint.monitor(options);
             let callback = ks(cb);
             let config = endpoint.config();
             let primaryKey = config.primaryKey || 'id';
@@ -372,8 +375,9 @@ const Mongonian = OutputFormat.extend({
             });
             return callback.return;
         };
-        
+
         if(!endpoint.delete) endpoint.delete = function(options, cb){
+            if(endpoint.monitor) endpoint.monitor(options);
             let callback = ks(cb);
             let config = endpoint.config();
             let primaryKey = config.primaryKey || 'id';
@@ -400,24 +404,23 @@ const Mongonian = OutputFormat.extend({
                 if(instance){
                     instance.get('/openapi.json', (req, res)=>{
                         let org = {
-                            'list': '', 
-                            'display': '', 
-                            'create': '', 
+                            'list': '',
+                            'display': '',
+                            'create': '',
                             'edit': ''
                         };
                         let serverList = [];
                         let pathReferenceDirectory = {};
                         api.endpoints.forEach((endpoint)=>{
                             org = {
-                                'list': endpoint.urls.list, 
-                                'display': endpoint.urls.display.replace(':id', '{id}'), 
-                                'create': endpoint.urls.create, 
+                                'list': endpoint.urls.list,
+                                'display': endpoint.urls.display.replace(':id', '{id}'),
+                                'create': endpoint.urls.create,
                                 'edit': endpoint.urls.edit.replace(':id', '{id}')
                             };
                             Object.keys(org).forEach((key)=>{
                                 pathReferenceDirectory[org[key]] = {$ref: endpoint.basePath+'/'+key+'-schema.json'};
                             });
-                            //console.log(endpoint); 
                         });
                         res.send(JSON.stringify({
                             openapi: '3.0.0',
@@ -468,19 +471,19 @@ const Mongonian = OutputFormat.extend({
         });
     },
     attachEndpoint : function(expressInstance, endpoint, {
-        prefix, 
-        urlPath, 
-        config, 
-        errorConfig, 
+        prefix,
+        urlPath,
+        config,
+        errorConfig,
         primaryKey,
         resultSpec,
         cleaned,
         readOnly,
         pathOptions
-    }){ 
+    }){
         let urls = getUrls(config, pathOptions, endpoint);
         endpoint.basePath = urlPath;
-        
+
         endpoint.createUrl(expressInstance, {
             url: urls.list,
             method: endpoint.endpointOptions.method.toLowerCase(),
@@ -492,7 +495,7 @@ const Mongonian = OutputFormat.extend({
                 handleListPage(endpoint, page, req, res, urlPath, endpoint.instances, options);
             }
         });
-        
+
         endpoint.createUrl(expressInstance, {
             url: urls.listPage,
             method: endpoint.endpointOptions.method.toLowerCase(),
@@ -501,7 +504,7 @@ const Mongonian = OutputFormat.extend({
                 handleListPage(endpoint, parseInt(req.params.pageNumber), req, res, urlPath, endpoint.instances, options);
             }
         });
-        
+
         endpoint.createUrl(expressInstance, {
             url: urls.delete,
             method: endpoint.endpointOptions.method.toLowerCase(),
@@ -515,7 +518,7 @@ const Mongonian = OutputFormat.extend({
                 });
             }
         });
-        
+
         if(this.options.search){
             endpoint.createUrl(expressInstance, {
                 url: urls.search,
@@ -531,7 +534,7 @@ const Mongonian = OutputFormat.extend({
                 }
             });
         }
-        
+
         if(this.options.aggregation){
             endpoint.createUrl(expressInstance, {
                 url: urls.aggregation,
@@ -549,7 +552,7 @@ const Mongonian = OutputFormat.extend({
                 }
             });
         }
-        
+
         endpoint.createUrl(expressInstance, {
             url: urls.save,
             method: endpoint.endpointOptions.method.toLowerCase(),
@@ -558,7 +561,7 @@ const Mongonian = OutputFormat.extend({
                 handleBatch(endpoint, 1, req, res, urlPath, endpoint.instances, options, true);
             }
         });
-        
+
         endpoint.createUrl(expressInstance, {
             url: urls.create,
             method: endpoint.endpointOptions.method.toLowerCase(),
@@ -574,7 +577,7 @@ const Mongonian = OutputFormat.extend({
                 });
             }
         });
-        
+
         endpoint.createUrl(expressInstance, {
             url: urls.edit,
             method: endpoint.endpointOptions.method.toLowerCase(),
@@ -596,7 +599,7 @@ const Mongonian = OutputFormat.extend({
                 }
             }
         });
-        
+
         endpoint.createUrl(expressInstance, {
             url: urls.display,
             method: endpoint.endpointOptions.method.toLowerCase(),
@@ -617,23 +620,23 @@ const Mongonian = OutputFormat.extend({
                 });
             }
         });
-        
+
     },
     attachSpec : function(){
-        
+
     },
     attachEndpointSpec : function(expressInstance, endpoint, {
-        prefix, 
-        urlPath, 
-        config, 
-        errorConfig, 
+        prefix,
+        urlPath,
+        config,
+        errorConfig,
         primaryKey,
         resultSpec,
         cleaned,
         readOnly,
         pathOptions
     }){
-        
+
         getUrls(config, pathOptions, endpoint);
         let opts = {
             objectName: endpoint.options.name
@@ -662,8 +665,8 @@ const Mongonian = OutputFormat.extend({
                                             properties: {
                                                 query : { $ref:'#/components/schemas/QueryDocumentFilter' },
                                                 link: {
-                                                    type: 'array', 
-                                                    required: false, 
+                                                    type: 'array',
+                                                    required: false,
                                                     items:{ type: 'string' }
                                                 }
                                             }
@@ -672,7 +675,7 @@ const Mongonian = OutputFormat.extend({
                                 }
                             },
                             parameters:{
-                                
+
                             },
                             responses:{
                                 '200': {
@@ -694,9 +697,9 @@ const Mongonian = OutputFormat.extend({
             }).catch((ex)=>{
                 console.log(ex);
             });
-            
+
         });
-        
+
         expressInstance[
             endpoint.endpointOptions.method.toLowerCase()
         ](endpoint.urls.itemSchema, (req, res)=>{
@@ -733,7 +736,7 @@ const Mongonian = OutputFormat.extend({
                 }));
             });
         });
-        
+
         expressInstance[
             endpoint.endpointOptions.method.toLowerCase()
         ](endpoint.urls.editSchema, (req, res)=>{
