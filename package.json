@@ -1,6 +1,6 @@
 {
     "name": "@perigress/mongonian",
-    "version": "0.1.23",
+    "version": "0.2.0",
     "main": "mongonian.js",
     "description": "Mongo like output format for Perigress",
     "keywords": [
@@ -24,6 +24,7 @@
         "joi": "^17.6.0",
         "mocha": "^10.0.0",
         "mocha-json-output-reporter": "^2.0.1",
+        "mocha-spec-json-output-reporter": "^1.1.7",
         "postman-request": "^2.88.1-postman.31"
     },
     "scripts": {
